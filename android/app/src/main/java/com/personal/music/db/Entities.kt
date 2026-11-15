@@ -82,3 +82,35 @@ data class Artist(
     val name: String,
     val songCount: Int
 )
+
+@Entity(
+    tableName = "liked_songs",
+    foreignKeys = [
+        ForeignKey(
+            entity = SongEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["songId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ]
+)
+data class LikedSongEntity(
+    @PrimaryKey val songId: String,
+    val likedAtMillis: Long
+)
+
+@Entity(
+    tableName = "recent_plays",
+    foreignKeys = [
+        ForeignKey(
+            entity = SongEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["songId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ]
+)
+data class RecentPlayEntity(
+    @PrimaryKey val songId: String,
+    val playedAtMillis: Long
+)

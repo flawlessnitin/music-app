@@ -42,6 +42,9 @@ data class SyncSummary(
     val pendingSongs: Int
 )
 
+/** The queue and spot the listener left off at, so the app can pick up where it stopped. */
+data class SavedSession(val songIds: List<String>, val index: Int, val positionMs: Long)
+
 interface SecretCipher {
     fun encrypt(plainText: String): String
     fun decrypt(cipherText: String): String
@@ -207,7 +210,32 @@ class SettingsStore(
         }
     }
 
+    suspend fun session(): SavedSession? {
+        val prefs = dataStore.data.first()
+        val ids = prefs[KEY_SESSION_IDS]?.split(SESSION_SEPARATOR)?.filter { it.isNotBlank() }.orEmpty()
+        if (ids.isEmpty()) return null
+        return SavedSession(ids, prefs[KEY_SESSION_INDEX] ?: 0, prefs[KEY_SESSION_POSITION] ?: 0L)
+    }
+
+    suspend fun saveSession(session: SavedSession?) {
+        dataStore.edit { prefs ->
+            if (session == null || session.songIds.isEmpty()) {
+                prefs.remove(KEY_SESSION_IDS)
+                prefs.remove(KEY_SESSION_INDEX)
+                prefs.remove(KEY_SESSION_POSITION)
+            } else {
+                prefs[KEY_SESSION_IDS] = session.songIds.joinToString(SESSION_SEPARATOR)
+                prefs[KEY_SESSION_INDEX] = session.index
+                prefs[KEY_SESSION_POSITION] = session.positionMs
+            }
+        }
+    }
+
     companion object {
+        private const val SESSION_SEPARATOR = "\n"
+        val KEY_SESSION_IDS =stringPreferencesKey("session_song_ids")
+        val KEY_SESSION_INDEX = intPreferencesKey("session_index")
+        val KEY_SESSION_POSITION = longPreferencesKey("session_position_ms")
         val KEY_ID = stringPreferencesKey("b2_key_id")
         val KEY_APPLICATION_KEY = stringPreferencesKey("b2_application_key")
         val KEY_BUCKET = stringPreferencesKey("b2_bucket")

@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -232,5 +233,62 @@ class LibraryScreenTest {
         composeTestRule.onNodeWithTag("mini_player").assertIsDisplayed()
         composeTestRule.onNodeWithText("Now Playing Song").assertIsDisplayed()
         composeTestRule.onNodeWithText("Now Playing Artist").assertIsDisplayed()
+    }
+
+    private fun addSongs() {
+        runBlocking {
+            repository.applyCatalog(
+                RemoteCatalog(
+                    version = 1,
+                    updatedAt = "",
+                    songs = listOf(remoteSong("1", title = "Alpha"), remoteSong("2", title = "Beta")),
+                )
+            )
+        }
+    }
+
+    @Test
+    fun `shuffle play button shuffles the whole library`() {
+        addSongs()
+        composeTestRule.setContent { LibraryScreen(viewModel = viewModel, player = player) }
+
+        composeTestRule.onNodeWithTag("shuffle_play_button").performClick()
+
+        assertEquals(1, player.shuffledPlayCalls.size)
+        assertEquals(setOf("1", "2"), player.shuffledPlayCalls.single().map { it.id }.toSet())
+    }
+
+    @Test
+    fun `the Liked tab shows the empty hint when nothing is liked`() {
+        addSongs()
+        composeTestRule.setContent { LibraryScreen(viewModel = viewModel, player = player) }
+
+        composeTestRule.onNodeWithText("Liked").performClick()
+        composeTestRule.onNodeWithText("Songs you like with the heart show up here.").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the Liked tab shows the liked songs`() {
+        addSongs()
+        val liked = runBlocking { repository.song("2")!! }
+        composeTestRule.setContent {
+            LibraryScreen(viewModel = viewModel, player = player, likedSongs = listOf(liked), likedIds = setOf("2"))
+        }
+
+        composeTestRule.onNodeWithText("Liked").performClick()
+        composeTestRule.onNodeWithText("Beta").assertIsDisplayed()
+        composeTestRule.onAllNodesWithTag("liked_mark", useUnmergedTree = true).assertCountEquals(1)
+    }
+
+    @Test
+    fun `the Recent tab shows recently played songs`() {
+        addSongs()
+        val recent = runBlocking { repository.song("1")!! }
+        composeTestRule.setContent {
+            LibraryScreen(viewModel = viewModel, player = player, recentSongs = listOf(recent))
+        }
+
+        composeTestRule.onNodeWithText("Recent").performClick()
+        composeTestRule.onAllNodesWithText("Alpha").assertCountEquals(1)
     }
 }

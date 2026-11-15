@@ -14,14 +14,17 @@ import androidx.sqlite.execSQL
         MetaEntity::class,
         PlaylistEntity::class,
         PlaylistSongEntity::class,
+        LikedSongEntity::class,
+        RecentPlayEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class MusicDatabase : RoomDatabase() {
     abstract fun songDao(): SongDao
     abstract fun metaDao(): MetaDao
     abstract fun playlistDao(): PlaylistDao
+    abstract fun listeningDao(): ListeningDao
 }
 
 private const val CREATE_PLAYLISTS_TABLE = """
@@ -65,6 +68,40 @@ val MIGRATION_1_2: Migration = object : Migration(1, 2) {
             connection.execSQL(CREATE_PLAYLIST_SONGS_TABLE)
             connection.execSQL(CREATE_INDEX_PLAYLIST_ID)
             connection.execSQL(CREATE_INDEX_SONG_ID)
+        }
+    }
+}
+
+private const val CREATE_LIKED_TABLE = """
+    CREATE TABLE IF NOT EXISTS `liked_songs` (
+        `songId` TEXT NOT NULL,
+        `likedAtMillis` INTEGER NOT NULL,
+        PRIMARY KEY(`songId`),
+        FOREIGN KEY(`songId`) REFERENCES `songs`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+    )
+"""
+
+private const val CREATE_RECENT_TABLE = """
+    CREATE TABLE IF NOT EXISTS `recent_plays` (
+        `songId` TEXT NOT NULL,
+        `playedAtMillis` INTEGER NOT NULL,
+        PRIMARY KEY(`songId`),
+        FOREIGN KEY(`songId`) REFERENCES `songs`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+    )
+"""
+
+val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(CREATE_LIKED_TABLE)
+        db.execSQL(CREATE_RECENT_TABLE)
+    }
+
+    override fun migrate(connection: SQLiteConnection) {
+        if (connection is SupportSQLiteConnection) {
+            super.migrate(connection)
+        } else {
+            connection.execSQL(CREATE_LIKED_TABLE)
+            connection.execSQL(CREATE_RECENT_TABLE)
         }
     }
 }

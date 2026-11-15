@@ -8,6 +8,8 @@ import androidx.test.core.app.ApplicationProvider
 import com.personal.music.catalog.RemoteCatalog
 import com.personal.music.catalog.RemoteSong
 import com.personal.music.db.MIGRATION_1_2
+import com.personal.music.db.MIGRATION_2_3
+import com.personal.music.listening.ListeningRepository
 import com.personal.music.db.MusicDatabase
 import com.personal.music.db.SongDao
 import com.personal.music.db.SongEntity
@@ -298,7 +300,7 @@ class PlaylistRepositoryTest {
     }
 
     @Test
-    fun `migration from version 1 keeps existing songs`() {
+    fun `migration from version 1 keeps existing songs and adds liked and recent`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val dbName = "migration_test.db"
         context.deleteDatabase(dbName)
@@ -346,7 +348,7 @@ class PlaylistRepositoryTest {
         sqliteDb.close()
 
         val migratedDb = Room.databaseBuilder(context, MusicDatabase::class.java, dbName)
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .build()
 
         try {
@@ -362,6 +364,12 @@ class PlaylistRepositoryTest {
                 val pSongs = pRepo.songs(pId).first()
                 assertEquals(1, pSongs.size)
                 assertEquals("migrated_1", pSongs[0].id)
+
+                val listening = ListeningRepository(migratedDb)
+                listening.setLiked("migrated_1", true)
+                listening.recordPlay("migrated_1")
+                assertEquals(setOf("migrated_1"), listening.likedIds().first())
+                assertEquals(listOf("migrated_1"), listening.recentSongs().first().map { it.id })
             }
         } finally {
             migratedDb.close()

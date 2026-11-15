@@ -39,6 +39,8 @@ data class PlayerState(
     val shuffle: Boolean = false,
     val repeat: RepeatMode = RepeatMode.OFF,
     val error: String? = null,
+    /** Wall-clock time when the sleep timer pauses playback, or null when no timer runs. */
+    val sleepTimerEndsAtMillis: Long? = null,
 )
 
 /**
@@ -49,6 +51,7 @@ data class PlayerState(
  */
 class PlayerConnection(
     private val scope: CoroutineScope,
+    private val clock: () -> Long = System::currentTimeMillis,
     private val toMediaItem: (SongEntity) -> MediaItem,
 ) : PlayerControls, Player.Listener {
     private val _state = MutableStateFlow(PlayerState())
@@ -57,6 +60,7 @@ class PlayerConnection(
     private var player: Player? = null
     private val waiting = ArrayDeque<(Player) -> Unit>()
     private var ticker: Job? = null
+    private var sleepJob: Job? = null
 
     fun attach(player: Player) {
         this.player = player
@@ -70,6 +74,38 @@ class PlayerConnection(
         p.setMediaItems(songs.map(toMediaItem), startIndex.coerceIn(0, songs.lastIndex), 0L)
         p.prepare()
         p.play()
+    }
+
+    override fun playShuffled(songs: List<SongEntity>) = withPlayer { p ->
+        if (songs.isEmpty()) return@withPlayer
+        p.shuffleModeEnabled = true
+        p.setMediaItems(songs.map(toMediaItem), songs.indices.random(), 0L)
+        p.prepare()
+        p.play()
+    }
+
+    /** Puts a saved queue back where it was, without starting playback. */
+    fun restore(songs: List<SongEntity>, index: Int, positionMs: Long) = withPlayer { p ->
+        if (songs.isEmpty() || p.mediaItemCount > 0) return@withPlayer
+        p.setMediaItems(songs.map(toMediaItem), index.coerceIn(0, songs.lastIndex), positionMs.coerceAtLeast(0L))
+        p.prepare()
+    }
+
+    override fun setSleepTimer(minutes: Int?) = setSleepTimerMillis(minutes?.let { it * 60_000L })
+
+    fun setSleepTimerMillis(millis: Long?) {
+        sleepJob?.cancel()
+        sleepJob = null
+        if (millis == null) {
+            _state.update { it.copy(sleepTimerEndsAtMillis = null) }
+            return
+        }
+        _state.update { it.copy(sleepTimerEndsAtMillis = clock() + millis) }
+        sleepJob = scope.launch {
+            delay(millis)
+            withPlayer { it.pause() }
+            _state.update { it.copy(sleepTimerEndsAtMillis = null) }
+        }
     }
 
     override fun playNext(song: SongEntity) = withPlayer { p ->

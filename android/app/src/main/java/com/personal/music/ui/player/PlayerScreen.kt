@@ -18,6 +18,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -26,7 +29,10 @@ import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -71,10 +77,13 @@ fun PlayerScreen(
     player: PlayerControls,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    liked: Boolean = false,
+    onToggleLike: () -> Unit = {},
 ) {
     val state by player.state.collectAsState()
     val current = state.current
     var showQueueSheet by remember { mutableStateOf(false) }
+    var showSleepDialog by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -85,6 +94,17 @@ fun PlayerScreen(
             snackbarHostState.showSnackbar(error)
         }
         player.clearError()
+    }
+
+    if (showSleepDialog) {
+        SleepTimerDialog(
+            endsAtMillis = state.sleepTimerEndsAtMillis,
+            onPick = { minutes ->
+                player.setSleepTimer(minutes)
+                showSleepDialog = false
+            },
+            onDismiss = { showSleepDialog = false },
+        )
     }
 
     Scaffold(
@@ -103,6 +123,32 @@ fun PlayerScreen(
                     }
                 },
                 actions = {
+                    if (current != null) {
+                        IconButton(
+                            onClick = onToggleLike,
+                            modifier = Modifier.testTag("like_button"),
+                        ) {
+                            Icon(
+                                imageVector = if (liked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                contentDescription = if (liked) "Remove from Liked Songs" else "Add to Liked Songs",
+                                tint = if (liked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+                    IconButton(
+                        onClick = { showSleepDialog = true },
+                        modifier = Modifier.testTag("sleep_timer_button"),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Bedtime,
+                            contentDescription = "Sleep timer",
+                            tint = if (state.sleepTimerEndsAtMillis != null) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
+                        )
+                    }
                     IconButton(
                         onClick = { showQueueSheet = true },
                         modifier = Modifier.testTag("open_queue_button"),
@@ -319,4 +365,50 @@ fun PlayerScreen(
             onDismiss = { showQueueSheet = false },
         )
     }
+}
+
+@Composable
+private fun SleepTimerDialog(
+    endsAtMillis: Long?,
+    onPick: (minutes: Int?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Sleep timer") },
+        text = {
+            Column {
+                if (endsAtMillis != null) {
+                    val left = ((endsAtMillis - System.currentTimeMillis()) / 60_000L + 1).coerceAtLeast(1)
+                    Text(
+                        text = "Music stops in about $left min.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .padding(bottom = 8.dp)
+                            .testTag("sleep_timer_remaining"),
+                    )
+                }
+                listOf(10, 20, 30, 45, 60).forEach { minutes ->
+                    Text(
+                        text = "$minutes minutes",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onPick(minutes) }
+                            .padding(vertical = 12.dp)
+                            .testTag("sleep_option_$minutes"),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            if (endsAtMillis != null) {
+                TextButton(
+                    onClick = { onPick(null) },
+                    modifier = Modifier.testTag("sleep_timer_off"),
+                ) { Text("Turn off timer") }
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+    )
 }

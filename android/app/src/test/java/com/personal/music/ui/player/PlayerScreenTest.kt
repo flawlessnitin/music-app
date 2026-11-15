@@ -252,4 +252,44 @@ class PlayerScreenTest {
         composeTestRule.onNodeWithText("Could not stream audio").assertIsDisplayed()
         assertEquals(1, player.clearErrorCallCount)
     }
+
+    private val song = QueueItem(songId = "s1", title = "Starman", artist = "David Bowie", artworkUri = null)
+
+    @Test
+    fun `the heart button toggles like and reflects the liked state`() {
+        player.updateState { it.copy(current = song, queue = listOf(song)) }
+        var toggles = 0
+        composeTestRule.setContent {
+            PlayerScreen(player = player, onBack = {}, liked = true, onToggleLike = { toggles++ })
+        }
+
+        composeTestRule.onNodeWithTag("like_button").performClick()
+
+        assertEquals(1, toggles)
+    }
+
+    @Test
+    fun `picking a sleep timer length starts the timer`() {
+        player.updateState { it.copy(current = song, queue = listOf(song)) }
+        composeTestRule.setContent { PlayerScreen(player = player, onBack = {}) }
+
+        composeTestRule.onNodeWithTag("sleep_timer_button").performClick()
+        composeTestRule.onNodeWithTag("sleep_option_30").performClick()
+
+        assertEquals(listOf<Int?>(30), player.sleepTimerCalls)
+    }
+
+    @Test
+    fun `a running sleep timer can be turned off`() {
+        player.updateState {
+            it.copy(current = song, queue = listOf(song), sleepTimerEndsAtMillis = System.currentTimeMillis() + 10 * 60_000L)
+        }
+        composeTestRule.setContent { PlayerScreen(player = player, onBack = {}) }
+
+        composeTestRule.onNodeWithTag("sleep_timer_button").performClick()
+        composeTestRule.onNodeWithTag("sleep_timer_remaining").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("sleep_timer_off").performClick()
+
+        assertEquals(listOf<Int?>(null), player.sleepTimerCalls)
+    }
 }

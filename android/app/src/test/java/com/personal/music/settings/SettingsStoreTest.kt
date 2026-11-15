@@ -101,4 +101,21 @@ class SettingsStoreTest {
         store.clearCredentials()
         assertNull(store.credentials())
     }
+
+    @Test
+    fun `a saved listening session round trips and can be cleared`() = runTest {
+        assertNull(store.session())
+
+        store.saveSession(SavedSession(listOf("a", "b", "c"), index = 1, positionMs = 12_345))
+        assertEquals(SavedSession(listOf("a", "b", "c"), 1, 12_345), store.session())
+
+        store.saveSession(null)
+        assertNull(store.session())
+    }
+
+    @Test
+    fun `an empty session is stored as no session`() = runTest {
+        store.saveSession(SavedSession(emptyList(), 0, 0))
+        assertNull(store.session())
+    }
 }

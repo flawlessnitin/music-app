@@ -19,4 +19,7 @@ interface PlayerControls {
     fun removeQueueItem(index: Int)
     fun jumpTo(index: Int)
     fun clearError()
+    fun playShuffled(songs: List<SongEntity>)
+    /** Pauses playback after [minutes]; null cancels the timer. */
+    fun setSleepTimer(minutes: Int?)
 }

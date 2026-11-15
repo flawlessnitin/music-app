@@ -20,6 +20,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -183,6 +186,12 @@ fun AppNav(
     )
     var songToAddToPlaylist by remember { mutableStateOf<SongEntity?>(null) }
 
+    val likedIds by remember(container) { container.listening.likedIds() }.collectAsState(initial = emptySet())
+    val likedSongs by remember(container) { container.listening.likedSongs() }.collectAsState(initial = emptyList())
+    val recentSongs by remember(container) { container.listening.recentSongs() }.collectAsState(initial = emptyList())
+    val listeningScope = rememberCoroutineScope()
+    val toggleLike: (String) -> Unit = { id -> listeningScope.launch { container.listening.toggleLiked(id) } }
+
     LaunchedEffect(Unit) {
         if (container.settings.credentials() == null) {
             navController.navigate("settings") {
@@ -212,6 +221,10 @@ fun AppNav(
                 },
                 coverFile = { song -> song.cover?.let { container.downloader.coverFile(it) } },
                 onAddToPlaylist = { song -> songToAddToPlaylist = song },
+                likedIds = likedIds,
+                likedSongs = likedSongs,
+                recentSongs = recentSongs,
+                onToggleLike = { song -> toggleLike(song.id) },
                 bottomBar = {
                     AppBottomBar(
                         navController = navController,
@@ -259,9 +272,13 @@ fun AppNav(
         }
 
         composable("player") {
+            val playerState by container.player.state.collectAsState()
+            val currentId = playerState.current?.songId
             PlayerScreen(
                 player = container.player,
                 onBack = { navController.popBackStack() },
+                liked = currentId != null && currentId in likedIds,
+                onToggleLike = { currentId?.let(toggleLike) },
             )
         }
 

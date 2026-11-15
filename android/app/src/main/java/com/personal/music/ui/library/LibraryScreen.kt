@@ -2,6 +2,8 @@ package com.personal.music.ui.library
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
@@ -63,7 +66,7 @@ import com.personal.music.ui.player.MiniPlayer
 import java.io.File
 
 enum class LibraryTab {
-    Songs, Albums, Artists
+    Songs, Albums, Artists, Liked, Recent
 }
 
 fun formatDuration(durationMs: Long): String {
@@ -83,6 +86,10 @@ fun LibraryScreen(
     onOpenPlayer: () -> Unit = {},
     coverFile: (SongEntity) -> File? = { null },
     onAddToPlaylist: (SongEntity) -> Unit = {},
+    likedIds: Set<String> = emptySet(),
+    likedSongs: List<SongEntity> = emptyList(),
+    recentSongs: List<SongEntity> = emptyList(),
+    onToggleLike: (SongEntity) -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
     showMiniPlayer: Boolean = true,
 ) {
@@ -156,7 +163,9 @@ fun LibraryScreen(
 
             // Tabs, as pills
             Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                modifier = Modifier
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 LibraryTab.entries.forEach { tab ->
@@ -195,6 +204,7 @@ fun LibraryScreen(
                         }
                     } else {
                         LazyColumn(modifier = Modifier.fillMaxSize()) {
+                            item { ShuffleButton(onClick = { player.playShuffled(songs) }) }
                             itemsIndexed(
                                 items = songs,
                                 key = { _, song -> song.id },
@@ -206,6 +216,8 @@ fun LibraryScreen(
                                     onAddToQueue = { viewModel.addToQueue(song) },
                                     onAddToPlaylist = { onAddToPlaylist(song) },
                                     coverFile = coverFile,
+                                    liked = song.id in likedIds,
+                                    onToggleLike = { onToggleLike(song) },
                                 )
                             }
                         }
@@ -241,6 +253,26 @@ fun LibraryScreen(
                         }
                     }
                 }
+
+                LibraryTab.Liked -> SongListTab(
+                    songs = likedSongs,
+                    emptyText = "Songs you like with the heart show up here.",
+                    likedIds = likedIds,
+                    player = player,
+                    coverFile = coverFile,
+                    onAddToPlaylist = onAddToPlaylist,
+                    onToggleLike = onToggleLike,
+                )
+
+                LibraryTab.Recent -> SongListTab(
+                    songs = recentSongs,
+                    emptyText = "Songs you play show up here.",
+                    likedIds = likedIds,
+                    player = player,
+                    coverFile = coverFile,
+                    onAddToPlaylist = onAddToPlaylist,
+                    onToggleLike = onToggleLike,
+                )
 
                 LibraryTab.Artists -> {
                     if (artists.isEmpty()) {
@@ -286,6 +318,8 @@ fun SongRow(
     onAddToPlaylist: () -> Unit,
     coverFile: (SongEntity) -> File?,
     modifier: Modifier = Modifier,
+    liked: Boolean = false,
+    onToggleLike: (() -> Unit)? = null,
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -378,6 +412,17 @@ fun SongRow(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (liked) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Icon(
+                        imageVector = Icons.Default.Favorite,
+                        contentDescription = "Liked",
+                        modifier = Modifier
+                            .size(14.dp)
+                            .testTag("liked_mark"),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
                 if (!song.downloaded) {
                     Spacer(modifier = Modifier.height(2.dp))
                     Icon(
@@ -410,6 +455,15 @@ fun SongRow(
                     onAddToQueue()
                 },
             )
+            if (onToggleLike != null) {
+                DropdownMenuItem(
+                    text = { Text(if (liked) "Remove from Liked Songs" else "Add to Liked Songs") },
+                    onClick = {
+                        showMenu = false
+                        onToggleLike()
+                    },
+                )
+            }
             DropdownMenuItem(
                 text = { Text("Add to playlist") },
                 onClick = {
@@ -496,6 +550,49 @@ fun ArtistRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+        }
+    }
+}
+
+@Composable
+private fun SongListTab(
+    songs: List<SongEntity>,
+    emptyText: String,
+    likedIds: Set<String>,
+    player: PlayerControls,
+    coverFile: (SongEntity) -> File?,
+    onAddToPlaylist: (SongEntity) -> Unit,
+    onToggleLike: (SongEntity) -> Unit,
+) {
+    if (songs.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = emptyText,
+                style = MaterialTheme.typography.bodyLarge,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    } else {
+        LazyColumn(modifier = Modifier.fillMaxSize()) {
+            item { ShuffleButton(onClick = { player.playShuffled(songs) }) }
+            itemsIndexed(items = songs, key = { _, song -> song.id }) { index, song ->
+                SongRow(
+                    song = song,
+                    onClick = { player.play(songs, index) },
+                    onPlayNext = { player.playNext(song) },
+                    onAddToQueue = { player.addToQueue(song) },
+                    onAddToPlaylist = { onAddToPlaylist(song) },
+                    coverFile = coverFile,
+                    liked = song.id in likedIds,
+                    onToggleLike = { onToggleLike(song) },
+                )
+            }
         }
     }
 }

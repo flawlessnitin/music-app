@@ -75,6 +75,9 @@ fun AlbumScreen(
                 .fillMaxSize()
                 .padding(innerPadding),
         ) {
+            if (songs.isNotEmpty()) {
+                item { ShuffleButton(onClick = { player.playShuffled(songs) }) }
+            }
             itemsIndexed(
                 items = songs,
                 key = { _, song -> song.id },

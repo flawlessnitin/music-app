@@ -148,3 +148,42 @@ interface PlaylistDao {
     @Query("UPDATE playlist_songs SET position = :position WHERE playlistId = :playlistId AND songId = :songId")
     suspend fun updatePosition(playlistId: Long, songId: String, position: Int)
 }
+
+@Dao
+interface ListeningDao {
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertLiked(liked: LikedSongEntity)
+
+    @Query("DELETE FROM liked_songs WHERE songId = :songId")
+    suspend fun deleteLiked(songId: String)
+
+    @Query("SELECT COUNT(*) FROM liked_songs WHERE songId = :songId")
+    suspend fun countLiked(songId: String): Int
+
+    @Query("SELECT songId FROM liked_songs")
+    fun likedIdsFlow(): Flow<List<String>>
+
+    @Query("""
+        SELECT s.* FROM songs s
+        INNER JOIN liked_songs l ON s.id = l.songId
+        ORDER BY l.likedAtMillis DESC, s.title COLLATE NOCASE ASC
+    """)
+    fun likedSongsFlow(): Flow<List<SongEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertRecent(recent: RecentPlayEntity)
+
+    @Query("""
+        DELETE FROM recent_plays WHERE songId NOT IN (
+            SELECT songId FROM recent_plays ORDER BY playedAtMillis DESC LIMIT :keep
+        )
+    """)
+    suspend fun trimRecent(keep: Int)
+
+    @Query("""
+        SELECT s.* FROM songs s
+        INNER JOIN recent_plays r ON s.id = r.songId
+        ORDER BY r.playedAtMillis DESC
+    """)
+    fun recentSongsFlow(): Flow<List<SongEntity>>
+}

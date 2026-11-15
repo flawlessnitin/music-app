@@ -10,7 +10,11 @@ import com.personal.music.db.SongEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -241,5 +245,77 @@ class PlayerConnectionTest {
         settle()
 
         assertEquals("b", connection.state.value.current!!.songId)
+    }
+
+    @Test
+    fun `playShuffled queues every song with shuffle on`() {
+        connection.playShuffled(listOf(a, b, c))
+        settle()
+
+        assertEquals(setOf("a", "b", "c"), ids().toSet())
+        assertEquals(3, ids().size)
+        assertTrue(connection.state.value.shuffle)
+        assertTrue(connection.state.value.current!!.songId in setOf("a", "b", "c"))
+    }
+
+    @Test
+    fun `playShuffled with no songs changes nothing`() {
+        connection.playShuffled(emptyList())
+        settle()
+
+        assertTrue(ids().isEmpty())
+    }
+
+    @Test
+    fun `restore loads the queue at the saved spot without playing`() {
+        connection.restore(listOf(a, b, c), index = 2, positionMs = 500)
+        settle()
+
+        assertEquals(listOf("a", "b", "c"), ids())
+        assertEquals(2, connection.state.value.index)
+        assertTrue(!player.playWhenReady)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun timerConnection(testScope: TestScope): PlayerConnection {
+        val timed = PlayerConnection(testScope) { MediaItems.from(it, null, null) }
+        timed.attach(player)
+        timed.play(listOf(a, b), 0)
+        settle()
+        assertTrue(player.playWhenReady)
+        return timed
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `the sleep timer pauses playback when it runs out`() {
+        val testScope = TestScope()
+        val timed = timerConnection(testScope)
+
+        timed.setSleepTimerMillis(1_000)
+        assertTrue(timed.state.value.sleepTimerEndsAtMillis != null)
+        testScope.advanceTimeBy(999); testScope.runCurrent()
+        assertTrue(player.playWhenReady)
+
+        testScope.advanceTimeBy(2); testScope.runCurrent()
+        settle()
+
+        assertTrue(!player.playWhenReady)
+        assertNull(timed.state.value.sleepTimerEndsAtMillis)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `cancelling the sleep timer keeps playback going`() {
+        val testScope = TestScope()
+        val timed = timerConnection(testScope)
+
+        timed.setSleepTimerMillis(1_000)
+        timed.setSleepTimerMillis(null)
+        testScope.advanceTimeBy(5_000); testScope.runCurrent()
+        settle()
+
+        assertTrue(player.playWhenReady)
+        assertNull(timed.state.value.sleepTimerEndsAtMillis)
     }
 }

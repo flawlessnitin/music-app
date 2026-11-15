@@ -29,6 +29,8 @@ class FakePlayerControls(
     val removeCalls = mutableListOf<Int>()
     val jumpToCalls = mutableListOf<Int>()
     var clearErrorCallCount = 0
+    val shuffledPlayCalls = mutableListOf<List<SongEntity>>()
+    val sleepTimerCalls = mutableListOf<Int?>()
 
     override fun play(songs: List<SongEntity>, startIndex: Int) {
         playCalls += songs to startIndex
@@ -80,5 +82,13 @@ class FakePlayerControls(
 
     override fun clearError() {
         clearErrorCallCount++
+    }
+
+    override fun playShuffled(songs: List<SongEntity>) {
+        shuffledPlayCalls += songs
+    }
+
+    override fun setSleepTimer(minutes: Int?) {
+        sleepTimerCalls += minutes
     }
 }
