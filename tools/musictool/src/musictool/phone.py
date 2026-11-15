@@ -11,6 +11,7 @@ from typing import Callable, Protocol
 
 APP_PACKAGE = "com.personal.music"
 MUSIC_DIR = f"/sdcard/Android/data/{APP_PACKAGE}/files/Music"
+PARTIAL_SUFFIX = ".part"
 
 
 class PhoneError(Exception):
@@ -39,6 +40,8 @@ def parse_find(text: str) -> list[PhoneFile]:
         size, sep, path = line.partition("|")
         if not sep or not size.strip().isdigit() or not path.startswith(prefix):
             continue
+        if path.endswith(PARTIAL_SUFFIX):
+            continue  # Left over from a transfer that was cut off.
         files.append(PhoneFile(path[len(prefix):], int(size)))
     return files
 
@@ -141,9 +144,16 @@ class AdbPhone:
         made = self._shell(f"mkdir -p {_quote(folder)}")
         if made.returncode != 0:
             raise PhoneError(f"Could not make {folder} on the phone: {self._text(made).strip()}")
-        pushed = self._adb_call("push", str(path), target)
+        # Send under a temporary name and rename when it is all there, so a dropped cable never
+        # leaves half a song under its real name (it would then look like it was already sent).
+        partial = target + PARTIAL_SUFFIX
+        pushed = self._adb_call("push", str(path), partial)
         if pushed.returncode != 0:
+            self._shell(f"rm -f {_quote(partial)}")
             raise PhoneError(f"Could not send {rel}: {self._text(pushed).strip()}")
+        renamed = self._shell(f"mv -f {_quote(partial)} {_quote(target)}")
+        if renamed.returncode != 0:
+            raise PhoneError(f"Could not finish {rel}: {self._text(renamed).strip()}")
 
     def delete(self, rel: str) -> None:
         result = self._shell(f"rm -f {_quote(f'{MUSIC_DIR}/{rel}')}")

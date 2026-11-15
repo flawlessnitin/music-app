@@ -63,8 +63,11 @@ def test_put_file_makes_the_folder_then_pushes(tmp_path: Path):
     joined = [" ".join(c) for c in rec.calls]
     assert any("mkdir -p" in c and "AA/Album" in c for c in joined)
     push = next(c for c in rec.calls if "push" in c)
-    assert push[-1] == f"{MUSIC_DIR}/AA/Album/01 - A.opus"
+    # It goes under a temporary name first, and is renamed once it has all arrived.
+    assert push[-1] == f"{MUSIC_DIR}/AA/Album/01 - A.opus.part"
     assert push[:3] == ["adb", "-s", "ABC123"]
+    rename = next(c for c in joined if " mv " in c or c.endswith("mv"))
+    assert ".opus.part" in rename and rename.rstrip().endswith("01 - A.opus'")
 
 
 def test_a_failing_push_is_reported(tmp_path: Path):
@@ -124,3 +127,20 @@ def test_the_single_connected_phone_is_picked_automatically():
 
     assert p.free_bytes() == 60 * 1024
     assert any(c[:3] == ["adb", "-s", "ONLY"] for c in rec.calls if "df" in " ".join(c))
+
+
+def test_a_failed_push_cleans_up_the_partial_file(tmp_path: Path):
+    f = tmp_path / "a.opus"
+    f.write_bytes(b"x")
+    p, rec = phone({"push": (1, "adb: error: connection reset")})
+
+    with pytest.raises(PhoneError):
+        p.put_file("a.opus", f)
+
+    assert any("rm -f" in " ".join(c) and "a.opus.part" in " ".join(c) for c in rec.calls)
+
+
+def test_half_sent_files_are_not_listed_as_songs():
+    text = "\n".join([f"10|{MUSIC_DIR}/AA/Album/01 - A.opus", f"5|{MUSIC_DIR}/AA/Album/02 - B.opus.part"])
+
+    assert [f.rel for f in parse_find(text)] == ["AA/Album/01 - A.opus"]
