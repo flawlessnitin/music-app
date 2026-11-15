@@ -7,7 +7,8 @@ plugins {
 
 android {
     namespace = "com.personal.music"
-    compileSdk = 36
+    // Several pinned libraries require compiling against API 37; the app still targets 36.
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.personal.music"
@@ -36,6 +37,13 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    testOptions {
+        unitTests {
+            // Robolectric and Compose UI tests need the merged resources and manifest.
+            isIncludeAndroidResources = true
+        }
     }
 
     packaging {
@@ -93,9 +101,5 @@ dependencies {
     testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.androidx.media3.test.utils)
     testImplementation(libs.androidx.compose.ui.test.junit4)
-}
-
-tasks.matching { it.name.contains("AarMetadata") }.configureEach {
-    enabled = false
 }
 
