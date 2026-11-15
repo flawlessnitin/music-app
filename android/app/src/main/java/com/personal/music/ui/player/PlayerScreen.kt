@@ -210,23 +210,21 @@ fun PlayerScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .padding(horizontal = 24.dp),
+                    .padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceEvenly,
             ) {
                 // Large Cover: shown in its own shape (16:9, square, tall...), as big as fits on the screen.
                 var coverRatio by remember(current.artworkUri) { mutableFloatStateOf(1f) }
                 BoxWithConstraints(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(vertical = 16.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center,
                 ) {
+                    // Full width; in height, leave room for the title, slider and buttons below.
                     val (coverWidth, coverHeight) = fitCover(
                         aspect = coverRatio,
-                        maxWidth = maxWidth.value * 0.85f,
-                        maxHeight = maxHeight.value,
+                        maxWidth = maxWidth.value,
+                        maxHeight = (maxHeight.value - ROOM_BELOW_COVER_DP).coerceAtLeast(MIN_COVER_HEIGHT_DP),
                     )
                     Box(
                         modifier = Modifier
@@ -504,3 +502,7 @@ fun fitCover(aspect: Float, maxWidth: Float, maxHeight: Float): Pair<Float, Floa
     val width = minOf(maxWidth, maxHeight * ratio)
     return width to width / ratio
 }
+
+// Space the title, slider and buttons need under the cover, so a tall cover cannot push them off the screen.
+private const val ROOM_BELOW_COVER_DP = 320f
+private const val MIN_COVER_HEIGHT_DP = 160f
