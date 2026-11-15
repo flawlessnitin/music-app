@@ -1,6 +1,8 @@
 package com.personal.music.b2
 
 import com.personal.music.settings.Credentials
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
@@ -55,6 +57,7 @@ class B2Client(
     )
 
     private val authMutex = Mutex()
+    @Volatile
     private var cachedAuth: AuthState? = null
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -68,16 +71,17 @@ class B2Client(
             cachedAuth?.let { return it }
         }
         return authMutex.withLock {
-            if (!forceRefresh) {
-                cachedAuth?.let { return it }
+            val cached = if (forceRefresh) null else cachedAuth
+            cached ?: run {
+                val creds = credentials() ?: throw B2Exception.BadKey("No credentials configured")
+                if (creds.keyId.isBlank() || creds.applicationKey.isBlank() || creds.bucket.isBlank()) {
+                    throw B2Exception.BadKey("Credentials are empty")
+                }
+                // Blocking network call: keep it off the caller's thread.
+                val newAuth = withContext(Dispatchers.IO) { authorize(creds) }
+                cachedAuth = newAuth
+                newAuth
             }
-            val creds = credentials() ?: throw B2Exception.BadKey("No credentials configured")
-            if (creds.keyId.isBlank() || creds.applicationKey.isBlank() || creds.bucket.isBlank()) {
-                throw B2Exception.BadKey("Credentials are empty")
-            }
-            val newAuth = authorize(creds)
-            cachedAuth = newAuth
-            newAuth
         }
     }
 
@@ -126,7 +130,9 @@ class B2Client(
         return "${downloadUrl.trimEnd('/')}/file/$encodedBucket/$encodedName"
     }
 
-    suspend fun open(name: String): Response {
+    suspend fun open(name: String): Response = withContext(Dispatchers.IO) { openBlocking(name) }
+
+    private suspend fun openBlocking(name: String): Response {
         var auth = getAuth()
         val url = buildDownloadUrl(auth.downloadUrl, auth.bucket, name)
 
@@ -170,12 +176,14 @@ class B2Client(
 
     suspend fun readText(name: String): String {
         val response = open(name)
-        return try {
-            response.use { res ->
-                res.body.string()
+        return withContext(Dispatchers.IO) {
+            try {
+                response.use { res ->
+                    res.body.string()
+                }
+            } catch (e: IOException) {
+                throw if (e is B2Exception) e else B2Exception.Network(e)
             }
-        } catch (e: IOException) {
-            throw if (e is B2Exception) e else B2Exception.Network(e)
         }
     }
 
