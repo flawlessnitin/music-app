@@ -48,12 +48,13 @@ def parse_find(text: str) -> list[PhoneFile]:
 
 
 def parse_df(text: str) -> int:
-    """Free bytes from `df -k` output (last line: fs, blocks, used, available, ...)."""
-    lines = [ln for ln in text.splitlines() if ln.strip()]
-    fields = lines[-1].split() if lines else []
-    if len(fields) < 4 or not fields[3].isdigit():
-        raise PhoneError(f"Could not read the phone's free space: {text.strip()!r}")
-    return int(fields[3]) * 1024
+    """Free bytes from `df -k` output. The data line is `fs blocks used available use% mount`;
+    anything else around it (adb's own messages, the header) is ignored."""
+    for line in reversed(text.splitlines()):
+        fields = line.split()
+        if len(fields) >= 4 and fields[1].isdigit() and fields[3].isdigit():
+            return int(fields[3]) * 1024
+    raise PhoneError(f"Could not read the phone's free space: {text.strip()!r}")
 
 
 def _quote(text: str) -> str:

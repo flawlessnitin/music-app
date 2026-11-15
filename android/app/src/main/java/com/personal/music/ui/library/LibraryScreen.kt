@@ -46,6 +46,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -100,7 +101,8 @@ fun LibraryScreen(
     val artists by viewModel.artists.collectAsState()
     val moods by viewModel.moods.collectAsState()
 
-    var selectedTab by remember { mutableStateOf(LibraryTab.Songs) }
+    // Saved, so coming back from a mood, album or artist lands on the same tab and not on Songs.
+    var selectedTab by rememberSaveable { mutableStateOf(LibraryTab.Songs) }
 
     Scaffold(
         bottomBar = {

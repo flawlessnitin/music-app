@@ -2,6 +2,7 @@ package com.personal.music.ui.library
 
 import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -173,3 +174,39 @@ private fun androidx.compose.ui.test.junit4.ComposeContentTestRule.onAllNodesWit
     androidx.compose.ui.test.SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.TestTag, tag).let { matcher ->
         this.onAllNodes(matcher).fetchSemanticsNodes().size
     }
+
+@RunWith(RobolectricTestRunner::class)
+class LibraryTabMemoryTest {
+    @get:Rule
+    val composeTestRule = createComposeRule()
+
+    @Test
+    fun `the library comes back on the same tab after leaving the screen and returning`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, MusicDatabase::class.java).allowMainThreadQueries().build()
+        val repository = LibraryRepository(db)
+        val player = FakePlayerControls()
+        runBlocking {
+            repository.replaceSongs(
+                listOf(
+                    SongEntity(
+                        id = "1", title = "Drift", artist = "A", album = "Al", albumArtist = "A",
+                        track = 1, disc = 1, year = 2024, durationMs = 1000, sizeBytes = 10,
+                        format = "mp3", file = "/m/1.mp3", cover = null, mood = "phonk",
+                    ),
+                ),
+            )
+        }
+        val restoration = StateRestorationTester(composeTestRule)
+        restoration.setContent { LibraryScreen(viewModel = LibraryViewModel(repository, player), player = player) }
+
+        composeTestRule.onNodeWithText("Moods").performClick()
+        composeTestRule.onNodeWithText("phonk").assertIsDisplayed()
+
+        // This is what happens when you open a mood and press back: the screen is rebuilt from saved state.
+        restoration.emulateSavedInstanceStateRestore()
+
+        composeTestRule.onNodeWithText("phonk").assertIsDisplayed()
+        db.close()
+    }
+}

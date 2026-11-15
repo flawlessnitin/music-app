@@ -182,3 +182,34 @@ def test_the_same_song_in_its_mood_is_already_present(audio, phone):
 
     assert report.already_present == [audio["mp3"]]
     assert report.moved == []
+
+
+def test_a_song_in_one_mood_moves_to_another_without_being_sent_again(audio, phone):
+    add([audio["mp3"]], phone, mood="chill")
+    pushed = len(phone.pushed)
+
+    report = add([audio["mp3"]], phone, mood="sad")
+
+    assert report.moved == [("chill/Unknown/Unknown/song.mp3", "sad/Unknown/Unknown/song.mp3")]
+    assert report.added == []
+    assert [r for r in phone.pushed[pushed:] if r.endswith(".mp3")] == []
+    assert sorted(r for r in phone.files if r.endswith(".mp3")) == ["sad/Unknown/Unknown/song.mp3"]
+
+
+def test_moving_between_moods_leaves_no_stray_cover(audio, phone):
+    add([audio["tagged_flac"]], phone, mood="chill")
+
+    add([audio["tagged_flac"]], phone, mood="sad")
+
+    assert "sad/AA/Album/Folder.jpg" in phone.files
+    assert "chill/AA/Album/Folder.jpg" not in phone.files
+
+
+def test_a_folder_that_merely_ends_the_same_is_not_mistaken_for_the_song(audio, phone):
+    # Two different songs: only a single mood folder in front of the same path counts as "the same song".
+    phone.files["a/b/Unknown/Unknown/song.mp3"] = b"x"
+
+    report = add([audio["mp3"]], phone, mood="sad")
+
+    assert report.moved == []
+    assert [a.rel for a in report.added] == ["sad/Unknown/Unknown/song.mp3"]

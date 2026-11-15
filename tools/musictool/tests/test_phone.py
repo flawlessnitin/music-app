@@ -162,3 +162,24 @@ def test_a_failed_move_is_reported():
 
     with pytest.raises(PhoneError):
         p.move("a.opus", "b/a.opus")
+
+
+def test_parse_df_ignores_adb_chatter_around_the_answer():
+    text = "\n".join([
+        "Filesystem     1K-blocks     Used Available Use% Mounted on",
+        "/dev/fuse       55167964 10140656  44896236  19% /storage/emulated",
+        "* daemon not running; starting now at tcp:5037",
+        "* daemon started successfully",
+    ])
+
+    assert parse_df(text) == 44896236 * 1024
+
+
+def test_the_adb_daemon_starting_does_not_break_a_move_or_a_push(tmp_path: Path):
+    f = tmp_path / "a.opus"
+    f.write_bytes(b"x")
+    chatter = {"mkdir": (0, "* daemon not running; starting now at tcp:5037\n* daemon started successfully\n")}
+    p, _ = phone(chatter)
+
+    p.put_file("AA/Album/a.opus", f)
+    p.move("AA/Album/a.opus", "sad/AA/Album/a.opus")

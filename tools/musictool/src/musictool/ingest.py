@@ -70,6 +70,19 @@ def _sidecar_cover(song: Path) -> Path | None:
     return None
 
 
+def _current_place(plain: str, on_phone: set[str]) -> str | None:
+    """Where this song already is on the phone: with no mood, or in exactly one mood folder."""
+    if plain in on_phone:
+        return plain
+    suffix = "/" + plain
+    for rel in sorted(on_phone):
+        if rel.endswith(suffix):
+            mood_folder = rel[: -len(suffix)]
+            if mood_folder and "/" not in mood_folder:
+                return rel
+    return None
+
+
 def _send_cover(phone: Phone, p, path: Path, workdir: Path, on_phone: set[str], mood: str | None) -> None:
     cover_rel = cover_path(p, mood)
     if cover_rel in on_phone:
@@ -118,17 +131,17 @@ def add(
                 if p.tags_missing:
                     report.missing_tags.append(path)
 
-                plain = song_path(p, plan.ext)
-                if song_mood and plain in on_phone:
+                current = _current_place(song_path(p, plan.ext), on_phone) if song_mood else None
+                if current is not None:
                     try:
-                        phone.move(plain, rel)
-                        on_phone.discard(plain)
+                        phone.move(current, rel)
+                        on_phone.discard(current)
                         on_phone.add(rel)
                         _send_cover(phone, p, path, workdir, on_phone, song_mood)
                     except PhoneError as exc:
                         report.failed.append((path, str(exc)))
                         break
-                    report.moved.append((plain, rel))
+                    report.moved.append((current, rel))
                     on_progress(f"Moved {p.artist} - {p.title} to {song_mood}")
                     continue
 
