@@ -48,6 +48,7 @@ import kotlin.math.roundToInt
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     modifier: Modifier = Modifier,
+    localMusicPath: String = "",
 ) {
     val ui by viewModel.ui.collectAsState()
 
@@ -237,6 +238,37 @@ fun SettingsScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.testTag("last_sync_text"),
         )
+
+        HorizontalDivider()
+
+        Text(
+            text = "Music on this phone",
+            style = MaterialTheme.typography.titleLarge,
+        )
+        Text(
+            text = "Songs you copy into this folder stay on the phone only. They are never uploaded." +
+                if (localMusicPath.isNotBlank()) "\n$localMusicPath" else "",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag("local_music_hint"),
+        )
+        OutlinedButton(
+            onClick = { viewModel.scanLocal() },
+            enabled = !ui.isScanningLocal,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("scan_local_button"),
+        ) {
+            Text(if (ui.isScanningLocal) "Scanning..." else "Scan phone music (${ui.localSongs} songs)")
+        }
+        if (!ui.localMessage.isNullOrBlank()) {
+            Text(
+                text = ui.localMessage!!,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.testTag("local_message"),
+            )
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
     }

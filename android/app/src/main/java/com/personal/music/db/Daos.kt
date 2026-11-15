@@ -26,6 +26,9 @@ interface SongDao {
     @Query("SELECT * FROM songs ORDER BY title COLLATE NOCASE ASC")
     fun getAllSongsFlow(): Flow<List<SongEntity>>
 
+    @Query("SELECT * FROM songs WHERE local = 1")
+    suspend fun getLocalSongsList(): List<SongEntity>
+
     @Query("SELECT * FROM songs WHERE downloaded = 0 ORDER BY title COLLATE NOCASE ASC")
     suspend fun getPendingSongs(): List<SongEntity>
 

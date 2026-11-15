@@ -1,5 +1,6 @@
 package com.personal.music.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -20,7 +21,9 @@ data class SongEntity(
     val format: String,
     val file: String,
     val cover: String?,
-    val downloaded: Boolean = false
+    val downloaded: Boolean = false,
+    /** Put on the phone by hand rather than synced from the bucket; never uploaded or deleted by sync. */
+    @ColumnInfo(defaultValue = "0") val local: Boolean = false
 )
 
 @Entity(tableName = "meta")

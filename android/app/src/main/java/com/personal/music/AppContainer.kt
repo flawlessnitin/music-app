@@ -1,6 +1,10 @@
 package com.personal.music
 
 import android.content.Context
+import android.os.Environment
+import com.personal.music.local.AndroidTagReader
+import com.personal.music.local.LocalMusicScanner
+import kotlinx.coroutines.withContext
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import androidx.room.Room
@@ -9,6 +13,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.personal.music.b2.B2Client
 import com.personal.music.db.MIGRATION_1_2
 import com.personal.music.db.MIGRATION_2_3
+import com.personal.music.db.MIGRATION_3_4
 import com.personal.music.db.MusicDatabase
 import com.personal.music.db.SongEntity
 import com.personal.music.library.LibraryRepository
@@ -41,7 +46,7 @@ class AppContainer(context: Context) {
 
     val db: MusicDatabase =
         Room.databaseBuilder(appContext, MusicDatabase::class.java, "music.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .addCallback(object : RoomDatabase.Callback() {
                 override fun onOpen(db: SupportSQLiteDatabase) {
                     super.onOpen(db)
@@ -93,6 +98,17 @@ class AppContainer(context: Context) {
         MediaItems.from(song, localFile(song), coverFile(song))
     }
 
+    /** Songs put here by hand (for example with adb or a file manager) are added to the library, phone only. */
+    val localMusicDir: File =
+        appContext.getExternalFilesDir(Environment.DIRECTORY_MUSIC) ?: File(appContext.filesDir, "Music")
+
+    /** Looks in [localMusicDir] and makes the library's by-hand songs match; returns how many were found. */
+    suspend fun scanLocalMusic(): Int = withContext(Dispatchers.IO) {
+        val found = LocalMusicScanner(localMusicDir, File(appContext.filesDir, "covers"), AndroidTagReader()).scan()
+        library.replaceLocalSongs(found)
+        found.size
+    }
+
     private var playerConnected = false
 
     /** Connects [player] to the playback service; called when the app's screen opens. */
@@ -100,6 +116,7 @@ class AppContainer(context: Context) {
         if (playerConnected) return
         playerConnected = true
         PlayerConnection.connect(appContext, player)
+        appScope.launch { runCatching { scanLocalMusic() } }
         restoreLastSession()
         rememberListening()
     }

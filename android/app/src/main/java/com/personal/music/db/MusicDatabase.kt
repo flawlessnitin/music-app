@@ -17,7 +17,7 @@ import androidx.sqlite.execSQL
         LikedSongEntity::class,
         RecentPlayEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class MusicDatabase : RoomDatabase() {
@@ -105,3 +105,19 @@ val MIGRATION_2_3: Migration = object : Migration(2, 3) {
         }
     }
 }
+
+val MIGRATION_3_4: Migration = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(ADD_LOCAL_COLUMN)
+    }
+
+    override fun migrate(connection: SQLiteConnection) {
+        if (connection is SupportSQLiteConnection) {
+            super.migrate(connection)
+        } else {
+            connection.execSQL(ADD_LOCAL_COLUMN)
+        }
+    }
+}
+
+private const val ADD_LOCAL_COLUMN = "ALTER TABLE `songs` ADD COLUMN `local` INTEGER NOT NULL DEFAULT 0"

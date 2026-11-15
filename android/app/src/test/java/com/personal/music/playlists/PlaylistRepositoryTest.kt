@@ -9,6 +9,7 @@ import com.personal.music.catalog.RemoteCatalog
 import com.personal.music.catalog.RemoteSong
 import com.personal.music.db.MIGRATION_1_2
 import com.personal.music.db.MIGRATION_2_3
+import com.personal.music.db.MIGRATION_3_4
 import com.personal.music.listening.ListeningRepository
 import com.personal.music.db.MusicDatabase
 import com.personal.music.db.SongDao
@@ -348,7 +349,7 @@ class PlaylistRepositoryTest {
         sqliteDb.close()
 
         val migratedDb = Room.databaseBuilder(context, MusicDatabase::class.java, dbName)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .build()
 
         try {
@@ -357,6 +358,7 @@ class PlaylistRepositoryTest {
                 assertNotNull(song)
                 assertEquals("Old Song", song?.title)
                 assertEquals(true, song?.downloaded)
+                assertEquals(false, song?.local)
 
                 val pRepo = PlaylistRepository(migratedDb)
                 val pId = pRepo.create("Migrated Playlist")

@@ -75,7 +75,7 @@ class SyncRunner(
         // Make the flags and the files agree, in both directions.
         val all = library.songs().first()
         for (song in all) {
-            if (song.downloaded && !downloader.localFile(song).isFile) {
+            if (!song.local && song.downloaded && !downloader.localFile(song).isFile) {
                 library.setDownloaded(song.id, false)
             }
         }

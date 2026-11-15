@@ -77,11 +77,12 @@ class SettingsViewModelFactory(
     private val library: LibraryRepository,
     private val b2: B2Client,
     private val onSyncNow: () -> Unit,
+    private val onScanLocal: (suspend () -> Int)? = null,
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
-            return SettingsViewModel(settings, library, b2, onSyncNow) as T
+            return SettingsViewModel(settings, library, b2, onSyncNow, onScanLocal = onScanLocal) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }
@@ -181,6 +182,7 @@ fun AppNav(
                 library = container.library,
                 b2 = container.b2,
                 onSyncNow = { SyncScheduler.syncNow(context) },
+                onScanLocal = { container.scanLocalMusic() },
             )
         },
     )
@@ -336,6 +338,7 @@ fun AppNav(
                 SettingsScreen(
                     viewModel = settingsViewModel,
                     modifier = Modifier.padding(padding),
+                    localMusicPath = container.localMusicDir.path,
                 )
             }
         }

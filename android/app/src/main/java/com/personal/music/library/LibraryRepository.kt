@@ -20,7 +20,8 @@ class LibraryRepository(private val db: MusicDatabase) {
         val existingMap = existingSongs.associateBy { it.id }
         val newIds = catalog.songs.map { it.id }.toSet()
 
-        val toDelete = existingSongs.filter { it.id !in newIds }
+        // Songs put on the phone by hand are not in the catalog and must survive it.
+        val toDelete = existingSongs.filter { it.id !in newIds && !it.local }
         if (toDelete.isNotEmpty()) {
             songDao.delete(toDelete)
         }
@@ -53,6 +54,14 @@ class LibraryRepository(private val db: MusicDatabase) {
         metaDao.setCatalogVersion(MetaEntity(id = 1, catalogVersion = catalog.version))
 
         toDelete
+    }
+
+    /** Makes the by-hand songs in the library match [found]; synced songs are left alone. */
+    suspend fun replaceLocalSongs(found: List<SongEntity>) = db.withTransaction {
+        val keep = found.map { it.id }.toSet()
+        val gone = songDao.getLocalSongsList().filter { it.id !in keep }
+        if (gone.isNotEmpty()) songDao.delete(gone)
+        if (found.isNotEmpty()) songDao.insertOrUpdate(found)
     }
 
     suspend fun catalogVersion(): Int {

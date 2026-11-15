@@ -26,7 +26,8 @@ class Downloader(
     private val coversDir: File,
     private val openOutput: (File) -> OutputStream = { it.outputStream() },
 ) {
-    fun localFile(song: SongEntity): File = File(songsDir, song.file.substringAfterLast('/'))
+    fun localFile(song: SongEntity): File =
+        if (song.local) File(song.file) else File(songsDir, song.file.substringAfterLast('/'))
 
     fun coverFile(name: String): File = File(coversDir, name.substringAfterLast('/'))
 
@@ -39,7 +40,8 @@ class Downloader(
     }
 
     fun delete(song: SongEntity) {
-        localFile(song).delete()
+        // A song put on the phone by hand is the user's own file; never delete it.
+        if (!song.local) localFile(song).delete()
     }
 
     fun deleteCoverIfUnused(name: String, stillUsed: Boolean) {

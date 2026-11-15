@@ -32,6 +32,9 @@ data class SettingsUi(
     val lastSyncFinishedAtMillis: Long? = null,
     val testMessage: String? = null,
     val isTesting: Boolean = false,
+    val localSongs: Int = 0,
+    val localMessage: String? = null,
+    val isScanningLocal: Boolean = false,
 ) {
     val hasKey: Boolean get() = hasCredentials
     val downloadedCount: Int get() = downloadedSongs
@@ -56,6 +59,7 @@ class SettingsViewModel(
     private val b2: B2Client,
     private val onSyncNow: () -> Unit,
     coroutineScope: CoroutineScope? = null,
+    private val onScanLocal: (suspend () -> Int)? = null,
 ) : ViewModel() {
 
     private val scope = coroutineScope ?: viewModelScope
@@ -66,6 +70,7 @@ class SettingsViewModel(
     )
 
     private val testState = MutableStateFlow(TestState())
+    private val scanState = MutableStateFlow<Pair<Boolean, String?>>(false to null)
 
     val ui: StateFlow<SettingsUi> = combine(
         combine(settings.credentialsFlow, settings.wifiOnly, settings.capBytes) { creds, wifi, cap ->
@@ -74,11 +79,13 @@ class SettingsViewModel(
         settings.lastSync,
         library.songs(),
         testState,
-    ) { (creds, wifi, cap), lastSync, songs, test ->
+        scanState,
+    ) { (creds, wifi, cap), lastSync, songs, test, scan ->
         val capGb = (cap / 1_000_000_000L).toInt().coerceIn(1, 40)
-        val downloaded = songs.count { it.downloaded }
-        val waiting = songs.count { !it.downloaded }
-        val used = songs.filter { it.downloaded }.sumOf { it.sizeBytes }
+        val synced = songs.filter { !it.local }
+        val downloaded = synced.count { it.downloaded }
+        val waiting = synced.count { !it.downloaded }
+        val used = synced.filter { it.downloaded }.sumOf { it.sizeBytes }
         val syncMessage = lastSync?.let { outcomeMessage(it) }
 
         SettingsUi(
@@ -94,6 +101,9 @@ class SettingsViewModel(
             lastSyncFinishedAtMillis = lastSync?.finishedAtMillis,
             testMessage = test.message,
             isTesting = test.isTesting,
+            localSongs = songs.count { it.local },
+            localMessage = scan.second,
+            isScanningLocal = scan.first,
         )
     }.stateIn(
         scope = scope,
@@ -162,6 +172,17 @@ class SettingsViewModel(
 
     fun syncNow() {
         onSyncNow()
+    }
+
+    fun scanLocal(): Job = scope.launch {
+        val scan = onScanLocal ?: return@launch
+        scanState.value = true to null
+        scanState.value = try {
+            val n = scan()
+            false to (if (n == 0) "No songs found in that folder yet." else "Found $n songs on this phone.")
+        } catch (e: Exception) {
+            false to "Could not read the folder: ${e.message ?: "unknown error"}"
+        }
     }
 
     fun clearKey(): Job = scope.launch {

@@ -77,13 +77,14 @@ class SettingsViewModelTest {
         bucket.stop()
     }
 
-    private fun createViewModel(scope: CoroutineScope): SettingsViewModel {
+    private fun createViewModel(scope: CoroutineScope, onScanLocal: (suspend () -> Int)? = null): SettingsViewModel {
         return SettingsViewModel(
             settings = settings,
             library = library,
             b2 = bucket.client { settings.credentials() },
             onSyncNow = { syncNowCalls++ },
             coroutineScope = scope,
+            onScanLocal = onScanLocal,
         )
     }
 
@@ -204,5 +205,40 @@ class SettingsViewModelTest {
 
         viewModel.setCapGb(50).join()
         assertEquals(40_000_000_000L, settings.capBytes.first())
+    }
+
+    @Test
+    fun `scanning phone music reports how many songs were found`() = runTest {
+        val scope = CoroutineScope(Dispatchers.Unconfined + SupervisorJob())
+        val vm = createViewModel(scope, onScanLocal = { 58 })
+
+        vm.scanLocal().join()
+
+        val ui = vm.ui.filter { it.localMessage != null }.first()
+        assertEquals("Found 58 songs on this phone.", ui.localMessage)
+        assertEquals(false, ui.isScanningLocal)
+        scope.cancel()
+    }
+
+    @Test
+    fun `scanning an empty folder says so`() = runTest {
+        val scope = CoroutineScope(Dispatchers.Unconfined + SupervisorJob())
+        val vm = createViewModel(scope, onScanLocal = { 0 })
+
+        vm.scanLocal().join()
+
+        assertEquals("No songs found in that folder yet.", vm.ui.filter { it.localMessage != null }.first().localMessage)
+        scope.cancel()
+    }
+
+    @Test
+    fun `a failing scan shows the reason instead of crashing`() = runTest {
+        val scope = CoroutineScope(Dispatchers.Unconfined + SupervisorJob())
+        val vm = createViewModel(scope, onScanLocal = { error("disk unreadable") })
+
+        vm.scanLocal().join()
+
+        assertTrue(vm.ui.filter { it.localMessage != null }.first().localMessage!!.contains("disk unreadable"))
+        scope.cancel()
     }
 }
