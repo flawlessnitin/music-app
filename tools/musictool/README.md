@@ -143,7 +143,7 @@ Version: 15
 ## 5. Quality Rule and Space Economics
 
 ### The Quality Rule
-- **Lossless sources (FLAC, WAV, ALAC, WavPack, APE):** Transcoded to **Ogg Opus at 256 kbps**. At 256 kbps, Opus provides transparent perceptual audio quality that is indistinguishable from uncompressed lossless audio on any playback equipment, while averaging only ~7 MB per song.
+- **Lossless sources (FLAC, WAV, ALAC, WavPack, APE):** Transcoded to **Ogg Opus at 256 kbps**. At 256 kbps, Opus is well past the bitrate at which listeners can reliably tell it from lossless, while averaging only ~7 MB per song.
 - **Already-lossy files (MP3, AAC/M4A, Ogg Vorbis, Opus):** Uploaded **untouched**. Transcoding lossy audio results in generational degradation without saving significant space.
 - **`--lossless` flag:** Preserves lossless files as FLAC (converting uncompressed WAV or ALAC to FLAC losslessly).
 

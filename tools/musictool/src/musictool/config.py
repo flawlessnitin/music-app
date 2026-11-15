@@ -44,8 +44,8 @@ def load(path: Path | None = None) -> Config:
         )
 
     try:
-        with open(cfg_path, "rb") as f:
-            data = tomllib.load(f)
+        # utf-8-sig: Notepad may save the file with a byte-order mark.
+        data = tomllib.loads(cfg_path.read_text(encoding="utf-8-sig"))
     except Exception as exc:
         raise ConfigError(
             f"Failed to read config file at {cfg_path}: {exc}. "

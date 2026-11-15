@@ -57,3 +57,10 @@ def test_missing_ffmpeg_gives_a_message(audio, fake, monkeypatch, capsys):
     monkeypatch.setattr("musictool.media.shutil.which", lambda _: None)
     assert main(["add", str(audio["mp3"])], storage=fake) == 2
     assert "ffmpeg" in capsys.readouterr().err
+
+
+def test_config_saved_with_a_byte_order_mark_still_loads(tmp_path):
+    from musictool import config
+    f = tmp_path / "config.toml"
+    f.write_text('key_id = "a"\napplication_key = "b"\nbucket = "c"\n', encoding="utf-8-sig")
+    assert config.load(f).bucket == "c"
