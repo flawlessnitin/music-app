@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -195,7 +196,9 @@ fun AppNav(
     val toggleLike: (String) -> Unit = { id -> listeningScope.launch { container.listening.toggleLiked(id) } }
 
     LaunchedEffect(Unit) {
-        if (container.settings.credentials() == null) {
+        // Only send a brand new user to Settings; someone with songs on the phone wants the library.
+        val noSongs = container.library.songs().first().isEmpty()
+        if (container.settings.credentials() == null && noSongs) {
             navController.navigate("settings") {
                 popUpTo("library") { inclusive = false }
                 launchSingleTop = true
