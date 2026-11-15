@@ -1,41 +1,48 @@
 package com.personal.music.ui.theme
 
+import android.os.Build
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 
-private val SpotifyLikeColors = darkColorScheme(
-    primary = SpotifyGreen,
-    onPrimary = Color.Black,
-    primaryContainer = SpotifyGreen,
-    onPrimaryContainer = Color.Black,
-    secondary = SpotifyGreen,
-    secondaryContainer = Color(0xFF4D4D4D),
-    onSecondaryContainer = Color.White,
-    onSecondary = Color.Black,
-    tertiary = SpotifyGreen,
-    background = Background,
-    onBackground = TextPrimary,
-    surface = Background,
-    onSurface = TextPrimary,
-    surfaceVariant = SurfaceHigh,
-    onSurfaceVariant = TextSecondary,
-    surfaceContainer = SurfaceDark,
-    surfaceContainerHigh = SurfaceHigh,
-    surfaceContainerHighest = SurfaceHigh,
-    surfaceContainerLow = SurfaceDark,
-    surfaceContainerLowest = Background,
-    outline = Color(0xFF727272),
-    outlineVariant = SurfaceHigh,
+private val DarkColorScheme = darkColorScheme(
+    primary = Purple80,
+    secondary = PurpleGrey80,
+    tertiary = Pink80
 )
 
-/** Always dark, like the music apps people are used to. The phone's own colours are ignored. */
+private val LightColorScheme = lightColorScheme(
+    primary = Purple40,
+    secondary = PurpleGrey40,
+    tertiary = Pink40
+)
+
 @Composable
-fun MusicTheme(content: @Composable () -> Unit) {
+fun MusicTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    dynamicColor: Boolean = true,
+    content: @Composable () -> Unit
+) {
+    val colorScheme = when {
+        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+            val context = LocalContext.current
+            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        }
+        darkTheme -> DarkColorScheme
+        else -> LightColorScheme
+    }
+
     MaterialTheme(
-        colorScheme = SpotifyLikeColors,
+        // The screens paint no background of their own, so the glow drawn behind them shows through.
+        // The app draws the real background colour (the scheme's `surface`) behind everything.
+        colorScheme = colorScheme.copy(background = Color.Transparent),
         typography = Typography,
-        content = content,
+        content = content
     )
 }

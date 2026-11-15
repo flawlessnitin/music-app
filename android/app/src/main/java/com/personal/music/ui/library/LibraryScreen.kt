@@ -178,7 +178,7 @@ fun LibraryScreen(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant,
                             labelColor = MaterialTheme.colorScheme.onSurface,
                             selectedContainerColor = MaterialTheme.colorScheme.primary,
-                            selectedLabelColor = Color.Black,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
                         ),
                     )
                 }

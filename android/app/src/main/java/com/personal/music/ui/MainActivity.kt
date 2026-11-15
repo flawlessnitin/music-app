@@ -7,7 +7,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.unit.dp
+import com.personal.music.ui.theme.AuroraGlow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -49,11 +54,21 @@ class MainActivity : ComponentActivity() {
             MusicTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background,
+                    color = MaterialTheme.colorScheme.surface,
                 ) {
                     val app = application as? MusicApp
                     if (app != null) {
-                        AppNav(container = app.container)
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            // Behind the screens: a slow glow, a little like the one at the bottom of Gemini.
+                            AuroraGlow(
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .height(280.dp),
+                                strength = 0.8f,
+                            )
+                            AppNav(container = app.container)
+                        }
                     } else {
                         Box(
                             modifier = Modifier.fillMaxSize(),
