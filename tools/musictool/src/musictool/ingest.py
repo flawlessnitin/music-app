@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -58,6 +59,8 @@ def add(
     else:
         catalog = Catalog()
 
+    cover_exists: dict[str, bool] = {}
+
     # In a finally block, bump and upload catalog if at least one song was added.
     try:
         with tempfile.TemporaryDirectory() as temp_dir_str:
@@ -111,13 +114,17 @@ def add(
                         storage.put_file(target_name, prepared_path, content_type(plan.ext))
 
                     # 5. Cover art
+                    # One existence check per album per run keeps B2 API calls low.
                     cover_name = f"covers/{album_id(p.album_artist, p.album)}.jpg"
-                    if p.has_cover and storage.size(cover_name) is None:
+                    if cover_name not in cover_exists:
+                        cover_exists[cover_name] = storage.size(cover_name) is not None
+                    if p.has_cover and not cover_exists[cover_name]:
                         cover_path = extract_cover(path, song_workdir)
                         if cover_path is not None:
                             storage.put_file(cover_name, cover_path, content_type(".jpg"))
+                            cover_exists[cover_name] = True
 
-                    song_cover = cover_name if storage.size(cover_name) is not None else None
+                    song_cover = cover_name if cover_exists[cover_name] else None
 
                     # 6. Add Song to catalog and to added
                     song = Song(
@@ -141,6 +148,9 @@ def add(
                 except StorageError as exc:
                     report.failed.append((path, str(exc)))
                     break
+                finally:
+                    # Converted files are large; do not let them pile up over a long run.
+                    shutil.rmtree(song_workdir, ignore_errors=True)
     finally:
         # 7. Bump and upload catalog if any song was added
         if report.added:

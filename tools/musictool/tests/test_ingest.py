@@ -111,3 +111,21 @@ def test_orphan_upload_from_interrupted_run_is_reused(audio, fake):
     fake.files[name] = audio["mp3"].read_bytes()
     add([audio["mp3"]], fake)
     assert name not in fake.puts and only_song(fake).sizeBytes == len(fake.files[name])
+
+
+def test_two_songs_of_one_album_share_one_cover_upload(audio, fake, tmp_path):
+    import subprocess
+    second = tmp_path / "second.flac"
+    subprocess.run(["ffmpeg", "-y", "-i", str(audio["tagged_flac"]), "-map", "0", "-c", "copy",
+                    "-metadata", "title=Song B", str(second)], check=True, capture_output=True)
+    report = add([audio["tagged_flac"], second], fake)
+    assert len(report.added) == 2 and report.added[0].cover == report.added[1].cover
+    assert [n for n in fake.puts if n.startswith("covers/")] == [report.added[0].cover]
+
+
+def test_converted_files_are_cleaned_up_after_each_song(audio, fake, tmp_path, monkeypatch):
+    monkeypatch.setattr("tempfile.tempdir", str(tmp_path))
+    seen = []
+    add([audio["tagged_flac"], audio["hindi_flac"]], fake,
+        on_progress=lambda _: seen.append(len(list(tmp_path.rglob("*.opus")))))
+    assert seen == [1, 1]

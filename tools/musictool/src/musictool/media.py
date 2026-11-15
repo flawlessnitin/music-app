@@ -129,8 +129,8 @@ def probe(path: Path) -> Probe:
             if disp.get("attached_pic", 0) == 1:
                 has_cover = True
             else:
-                # A real video track: a music video, not a song file.
-                raise NotAudio(f"{path} is a video file")
+                # A real video track or a plain image: not a song file.
+                raise NotAudio(f"{path} is a video or image file")
 
     if audio_stream is None:
         raise NotAudio(f"No audio stream found in {path}")
