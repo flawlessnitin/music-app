@@ -116,6 +116,19 @@ class SettingsStore(
     private val cipher: SecretCipher = AndroidKeystoreSecretCipher(),
     private val dataStore: DataStore<Preferences> = context.settingsDataStore
 ) {
+    val credentialsFlow: Flow<Credentials?> = dataStore.data.map { prefs ->
+        val keyId = prefs[KEY_ID] ?: return@map null
+        val encryptedAppKey = prefs[KEY_APPLICATION_KEY] ?: return@map null
+        val bucket = prefs[KEY_BUCKET] ?: return@map null
+        if (keyId.isBlank() || encryptedAppKey.isBlank() || bucket.isBlank()) return@map null
+        val appKey = try {
+            cipher.decrypt(encryptedAppKey)
+        } catch (e: Exception) {
+            return@map null
+        }
+        Credentials(keyId = keyId, applicationKey = appKey, bucket = bucket)
+    }
+
     suspend fun credentials(): Credentials? {
         val prefs = dataStore.data.first()
         val keyId = prefs[KEY_ID] ?: return null

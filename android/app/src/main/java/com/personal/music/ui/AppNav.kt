@@ -16,12 +16,14 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -33,9 +35,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.personal.music.AppContainer
+import com.personal.music.b2.B2Client
 import com.personal.music.db.SongEntity
 import com.personal.music.library.LibraryRepository
 import com.personal.music.playback.PlayerControls
+import com.personal.music.settings.SettingsStore
+import com.personal.music.sync.SyncScheduler
 import com.personal.music.ui.library.AlbumScreen
 import com.personal.music.ui.library.ArtistScreen
 import com.personal.music.ui.library.LibraryScreen
@@ -45,6 +50,8 @@ import com.personal.music.ui.player.PlayerScreen
 import com.personal.music.ui.playlists.AddToPlaylistSheet
 import com.personal.music.ui.playlists.PlaylistScreen
 import com.personal.music.ui.playlists.PlaylistsScreen
+import com.personal.music.ui.settings.SettingsScreen
+import com.personal.music.ui.settings.SettingsViewModel
 
 class LibraryViewModelFactory(
     private val repository: LibraryRepository,
@@ -54,6 +61,21 @@ class LibraryViewModelFactory(
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(LibraryViewModel::class.java)) {
             return LibraryViewModel(repository, player) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
+    }
+}
+
+class SettingsViewModelFactory(
+    private val settings: SettingsStore,
+    private val library: LibraryRepository,
+    private val b2: B2Client,
+    private val onSyncNow: () -> Unit,
+) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
+            return SettingsViewModel(settings, library, b2, onSyncNow) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }
@@ -139,10 +161,30 @@ fun AppNav(
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController(),
 ) {
+    val context = LocalContext.current
     val libraryViewModel: LibraryViewModel = viewModel(
         factory = LibraryViewModelFactory(container.library, container.player),
     )
+    val settingsViewModel: SettingsViewModel = viewModel(
+        factory = remember(container) {
+            SettingsViewModelFactory(
+                settings = container.settings,
+                library = container.library,
+                b2 = container.b2,
+                onSyncNow = { SyncScheduler.syncNow(context) },
+            )
+        },
+    )
     var songToAddToPlaylist by remember { mutableStateOf<SongEntity?>(null) }
+
+    LaunchedEffect(Unit) {
+        if (container.settings.credentials() == null) {
+            navController.navigate("settings") {
+                popUpTo("library") { inclusive = false }
+                launchSingleTop = true
+            }
+        }
+    }
 
     NavHost(
         navController = navController,
@@ -268,14 +310,10 @@ fun AppNav(
                     }
                 },
             ) { padding ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(text = "Settings Screen")
-                }
+                SettingsScreen(
+                    viewModel = settingsViewModel,
+                    modifier = Modifier.padding(padding),
+                )
             }
         }
     }
