@@ -96,3 +96,11 @@ def test_extract_cover_is_500px_jpeg(audio, tmp_path):
 
 def test_extract_cover_none_when_absent(audio, tmp_path):
     assert extract_cover(audio["mp3"], tmp_path) is None
+
+
+def test_probe_rejects_video_files(audio):
+    with pytest.raises(NotAudio): probe(audio["video"])
+
+def test_blank_tag_counts_as_missing(audio):
+    p = probe(audio["blank_tags_mp3"])
+    assert p.title == "Has Title" and p.artist == "Unknown" and p.tags_missing

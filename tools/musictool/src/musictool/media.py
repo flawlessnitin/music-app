@@ -86,8 +86,8 @@ def _get_tag(tags: dict[str, str], *keys: str) -> str | None:
     lower_tags = {k.lower(): v for k, v in tags.items()}
     for key in keys:
         val = lower_tags.get(key.lower())
-        if val is not None:
-            return val
+        if val is not None and val.strip():
+            return val.strip()
     return None
 
 
@@ -128,6 +128,9 @@ def probe(path: Path) -> Probe:
             disp = stream.get("disposition", {})
             if disp.get("attached_pic", 0) == 1:
                 has_cover = True
+            else:
+                # A real video track: a music video, not a song file.
+                raise NotAudio(f"{path} is a video file")
 
     if audio_stream is None:
         raise NotAudio(f"No audio stream found in {path}")

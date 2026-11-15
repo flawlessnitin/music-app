@@ -89,7 +89,30 @@ def audio(tmp_path_factory):
     not_audio = d / "notes.txt"
     not_audio.write_text("just some notes", encoding="utf-8")
 
+    # --- video: an mp4 with a real video track and AAC audio ---
+    video = d / "clip.mp4"
+    _run([
+        "ffmpeg", "-y",
+        "-f", "lavfi", "-i", "testsrc=duration=1:size=320x240:rate=10",
+        "-f", "lavfi", "-i", "sine=frequency=440:duration=1",
+        "-c:a", "aac", "-shortest",
+        str(video),
+    ])
+
+    # --- blank_tags_mp3: artist tag present but only spaces ---
+    blank_tags_mp3 = d / "blank tags.mp3"
+    _run([
+        "ffmpeg", "-y",
+        "-f", "lavfi", "-i", "sine=frequency=440:duration=1",
+        "-c:a", "libmp3lame",
+        "-metadata", "title=Has Title",
+        "-metadata", "artist=   ",
+        str(blank_tags_mp3),
+    ])
+
     return {
+        "video": video,
+        "blank_tags_mp3": blank_tags_mp3,
         "tagged_flac": tagged_flac,
         "untagged_wav": untagged_wav,
         "mp3": mp3,
