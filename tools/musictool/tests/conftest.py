@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from musictool.catalog import Song
+from musictool.storage import StorageError
 
 
 @pytest.fixture(scope="session")
@@ -142,3 +143,39 @@ def make_song(**overrides) -> Song:
     )
     defaults.update(overrides)
     return Song(**defaults)
+
+
+class FakeStorage:
+    def __init__(self) -> None:
+        self.files: dict[str, bytes] = {}
+        self.puts: list[str] = []
+        self.fail_on: set[str] = set()
+
+    def read(self, name: str) -> bytes | None:
+        return self.files.get(name)
+
+    def size(self, name: str) -> int | None:
+        if name in self.files:
+            return len(self.files[name])
+        return None
+
+    def put_bytes(self, name: str, data: bytes, content_type: str) -> None:
+        if name in self.fail_on:
+            raise StorageError(f"Simulated storage failure for {name}")
+        self.files[name] = bytes(data)
+        self.puts.append(name)
+
+    def put_file(self, name: str, path: Path, content_type: str) -> None:
+        if name in self.fail_on:
+            raise StorageError(f"Simulated storage failure for {name}")
+        self.files[name] = Path(path).read_bytes()
+        self.puts.append(name)
+
+    def delete(self, name: str) -> None:
+        self.files.pop(name, None)
+
+
+@pytest.fixture
+def fake() -> FakeStorage:
+    return FakeStorage()
+
