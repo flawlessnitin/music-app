@@ -35,6 +35,7 @@ import com.personal.music.ui.library.ArtistScreen
 import com.personal.music.ui.library.LibraryScreen
 import com.personal.music.ui.library.LibraryViewModel
 import com.personal.music.ui.player.MiniPlayer
+import com.personal.music.ui.player.PlayerScreen
 
 class LibraryViewModelFactory(
     private val repository: LibraryRepository,
@@ -199,12 +200,10 @@ fun AppNav(
         }
 
         composable("player") {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(text = "Player Screen")
-            }
+            PlayerScreen(
+                player = container.player,
+                onBack = { navController.popBackStack() },
+            )
         }
 
         composable("playlists") {
