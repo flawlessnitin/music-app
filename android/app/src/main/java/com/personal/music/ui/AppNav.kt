@@ -83,21 +83,12 @@ class SettingsViewModelFactory(
 }
 
 @Composable
-private fun navItemColors() = NavigationBarItemDefaults.colors(
-    selectedIconColor = MaterialTheme.colorScheme.onSurface,
-    selectedTextColor = MaterialTheme.colorScheme.onSurface,
-    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-    indicatorColor = Color.Transparent,
-)
-
-@Composable
 fun AppBottomBar(
     navController: NavHostController,
     currentRoute: String,
     modifier: Modifier = Modifier,
 ) {
-    NavigationBar(modifier = modifier, containerColor = MaterialTheme.colorScheme.background) {
+    NavigationBar(modifier = modifier) {
         NavigationBarItem(
             selected = currentRoute == "library",
             onClick = {
@@ -115,7 +106,6 @@ fun AppBottomBar(
                 )
             },
             label = { Text("Library") },
-            colors = navItemColors(),
         )
         NavigationBarItem(
             selected = currentRoute == "playlists",
@@ -134,7 +124,6 @@ fun AppBottomBar(
                 )
             },
             label = { Text("Playlists") },
-            colors = navItemColors(),
         )
         NavigationBarItem(
             selected = currentRoute == "settings",
@@ -153,7 +142,6 @@ fun AppBottomBar(
                 )
             },
             label = { Text("Settings") },
-            colors = navItemColors(),
         )
     }
 }
