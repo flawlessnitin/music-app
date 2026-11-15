@@ -117,7 +117,8 @@ def main(argv: list[str] | None = None, storage: Storage | None = None) -> int:
                 paths,
                 storage=storage,
                 keep_lossless=args.lossless,
-                on_progress=print,
+                # Flush so each song shows as it finishes, even when output is piped.
+                on_progress=lambda message: print(message, flush=True),
             )
 
             print("\nSummary:")
