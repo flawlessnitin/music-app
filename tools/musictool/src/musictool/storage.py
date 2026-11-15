@@ -78,9 +78,16 @@ class B2Storage:
 
     def put_bytes(self, name: str, data: bytes, content_type: str) -> None:
         try:
-            self._bucket.upload_bytes(data, name, content_type=content_type)
+            new = self._bucket.upload_bytes(data, name, content_type=content_type)
+            self._drop_older_versions(name, new.id_)
         except B2Error as e:
             raise StorageError(str(e)) from e
+
+    def _drop_older_versions(self, name: str, keep_id: str) -> None:
+        """B2 keeps every upload of a name as a version; old ones only waste space."""
+        for version in list(self._bucket.list_file_versions(name)):
+            if version.file_name == name and version.id_ != keep_id:
+                version.delete()
 
     def put_file(self, name: str, path: Path, content_type: str) -> None:
         try:

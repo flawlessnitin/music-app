@@ -47,3 +47,17 @@ def test_delete_removes_every_version(store):
 
 def test_delete_missing_is_silent(store):
     store.delete("never-existed")
+
+
+def test_b2_keeps_only_the_newest_version_of_a_rewritten_file():
+    api_config = B2HttpApiConfig()
+    api_config.raw_api_class = RawSimulator
+    api = B2Api(StubAccountInfo(), api_config=api_config)
+    account_id, master_key = api.raw_api.create_account()
+    api.authorize_account("production", account_id, master_key)
+    api.create_bucket("test-bucket", "allPrivate")
+    store = B2Storage._from_api(api, "test-bucket")
+    for body in (b"1", b"22", b"333"):
+        store.put_bytes("catalog.json", body, "application/json")
+    assert store.read("catalog.json") == b"333"
+    assert len(list(store._bucket.list_file_versions("catalog.json"))) == 1
