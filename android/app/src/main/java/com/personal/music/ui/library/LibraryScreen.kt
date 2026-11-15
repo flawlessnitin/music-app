@@ -32,9 +32,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.ScrollableTabRow
-import androidx.compose.material3.Tab
+import androidx.compose.material3.TextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.graphics.Color
@@ -120,8 +118,14 @@ fun LibraryScreen(
                 .fillMaxSize()
                 .padding(innerPadding),
         ) {
+            Text(
+                text = "Your Library",
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.padding(start = 16.dp, top = 20.dp, end = 16.dp),
+            )
+
             // Search field
-            OutlinedTextField(
+            TextField(
                 value = query,
                 onValueChange = { viewModel.setQuery(it) },
                 modifier = Modifier
@@ -146,15 +150,36 @@ fun LibraryScreen(
                     }
                 },
                 singleLine = true,
+                shape = RoundedCornerShape(28.dp),
+                colors = TextFieldDefaults.colors(
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    disabledIndicatorColor = Color.Transparent,
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                ),
             )
 
-            // Tabs
-            ScrollableTabRow(selectedTabIndex = selectedTab.ordinal, edgePadding = 0.dp) {
+            // Tabs, as pills
+            Row(
+                modifier = Modifier
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 LibraryTab.entries.forEach { tab ->
-                    Tab(
+                    FilterChip(
                         selected = selectedTab == tab,
                         onClick = { selectedTab = tab },
-                        text = { Text(tab.name) },
+                        label = { Text(tab.name, fontWeight = FontWeight.SemiBold) },
+                        shape = RoundedCornerShape(50),
+                        border = null,
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            labelColor = MaterialTheme.colorScheme.onSurface,
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                        ),
                     )
                 }
             }
