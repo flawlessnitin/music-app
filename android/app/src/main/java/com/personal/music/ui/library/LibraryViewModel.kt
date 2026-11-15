@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.personal.music.db.Album
 import com.personal.music.db.Artist
+import com.personal.music.db.Mood
 import com.personal.music.db.SongEntity
 import com.personal.music.library.LibraryRepository
 import com.personal.music.playback.PlayerControls
@@ -44,6 +45,13 @@ class LibraryViewModel(
         )
 
     val artists: StateFlow<List<Artist>> = repo.artists()
+        .stateIn(
+            scope = scope,
+            started = SharingStarted.Eagerly,
+            initialValue = emptyList(),
+        )
+
+    val moods: StateFlow<List<Mood>> = repo.moods()
         .stateIn(
             scope = scope,
             started = SharingStarted.Eagerly,

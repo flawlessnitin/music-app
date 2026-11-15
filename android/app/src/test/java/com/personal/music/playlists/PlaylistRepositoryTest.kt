@@ -8,6 +8,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.personal.music.db.MIGRATION_1_2
 import com.personal.music.db.MIGRATION_2_3
 import com.personal.music.db.MIGRATION_3_4
+import com.personal.music.db.MIGRATION_4_5
 import com.personal.music.listening.ListeningRepository
 import com.personal.music.db.MusicDatabase
 import com.personal.music.db.SongDao
@@ -18,6 +19,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -329,7 +331,7 @@ class PlaylistRepositoryTest {
         sqliteDb.close()
 
         val migratedDb = Room.databaseBuilder(context, MusicDatabase::class.java, dbName)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
             .build()
 
         try {
@@ -339,6 +341,7 @@ class PlaylistRepositoryTest {
                 assertEquals("Old Song", song?.title)
                 assertEquals(true, song?.downloaded)
                 assertEquals(false, song?.local)
+                assertNull(song?.mood)
 
                 val pRepo = PlaylistRepository(migratedDb)
                 val pId = pRepo.create("Migrated Playlist")

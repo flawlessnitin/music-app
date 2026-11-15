@@ -38,6 +38,19 @@ def remove(rels: list[str], phone: Phone) -> list[str]:
     return removed
 
 
+def remove_orphan_covers(phone: Phone) -> list[str]:
+    """Delete covers that no song sits beside any more (for example after songs moved to another folder)."""
+    files = phone.list_files()
+    song_folders = {str(PurePosixPath(f.rel).parent) for f in songs(files)}
+    orphans = sorted(
+        f.rel for f in files
+        if PurePosixPath(f.rel).name == COVER_NAME and str(PurePosixPath(f.rel).parent) not in song_folders
+    )
+    for rel in orphans:
+        phone.delete(rel)
+    return orphans
+
+
 @dataclass
 class Status:
     songs: int

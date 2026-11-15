@@ -24,7 +24,9 @@ data class SongEntity(
     // Both are always true now: every song is a file on the phone. The columns stay so the database
     // does not need another upgrade.
     val downloaded: Boolean = true,
-    @ColumnInfo(defaultValue = "0") val local: Boolean = true
+    @ColumnInfo(defaultValue = "0") val local: Boolean = true,
+    /** The kind of music this is (for example phonk, sad, chill); null when it has none. */
+    val mood: String? = null
 )
 
 @Entity(tableName = "meta")
@@ -117,4 +119,27 @@ data class LikedSongEntity(
 data class RecentPlayEntity(
     @PrimaryKey val songId: String,
     val playedAtMillis: Long
+)
+
+/** A mood chosen in the app. It is kept apart from the song so a rescan of the folders cannot undo it. */
+@Entity(
+    tableName = "mood_overrides",
+    foreignKeys = [
+        ForeignKey(
+            entity = SongEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["songId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ]
+)
+data class MoodOverrideEntity(
+    @PrimaryKey val songId: String,
+    /** The chosen mood; empty means "no mood" was chosen on purpose. */
+    val mood: String
+)
+
+data class Mood(
+    val name: String,
+    val songCount: Int
 )

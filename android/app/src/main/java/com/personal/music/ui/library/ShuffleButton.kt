@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 
 /** The big "Shuffle play" button shown above a list of songs. */
 @Composable
-fun ShuffleButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun ShuffleButton(onClick: () -> Unit, modifier: Modifier = Modifier, label: String = "Shuffle play") {
     Row(
         modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -28,7 +28,7 @@ fun ShuffleButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
         ) {
             Icon(imageVector = Icons.Default.Shuffle, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Shuffle play")
+            Text(label)
         }
     }
 }

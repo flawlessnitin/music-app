@@ -137,4 +137,32 @@ class LocalMusicScannerTest {
 
         assertFalse(scan().isNotEmpty())
     }
+
+    @Test
+    fun `a folder straight under the music folder is a mood`() {
+        file("phonk/01 - Drift.mp3")
+
+        assertEquals("phonk", scan().single().mood)
+    }
+
+    @Test
+    fun `artist and album folders alone make no mood`() {
+        file("Arijit/Aashiqui/01 - Tum Hi Ho.mp3")
+
+        assertNull(scan().single().mood)
+    }
+
+    @Test
+    fun `mood then artist then album gives the first folder as the mood`() {
+        file("sad/Arijit/Aashiqui/01 - Tum Hi Ho.mp3")
+
+        assertEquals("sad", scan().single().mood)
+    }
+
+    @Test
+    fun `songs loose in the music folder have no mood`() {
+        file("loose.mp3")
+
+        assertNull(scan().single().mood)
+    }
 }

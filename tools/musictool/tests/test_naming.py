@@ -50,3 +50,17 @@ def test_very_long_titles_are_shortened_but_keep_the_extension():
     name = path.rsplit("/", 1)[1]
     assert len(name) <= 150
     assert name.endswith(".opus")
+
+
+def test_a_mood_becomes_the_top_folder():
+    assert song_path(probe(), ".opus", mood="phonk") == "phonk/AA/Album/03 - Song A.opus"
+    assert cover_path(probe(), mood="phonk") == "phonk/AA/Album/Folder.jpg"
+
+
+def test_no_mood_keeps_the_plain_layout():
+    assert song_path(probe(), ".opus", mood=None) == "AA/Album/03 - Song A.opus"
+    assert song_path(probe(), ".opus", mood="  ") == "AA/Album/03 - Song A.opus"
+
+
+def test_a_mood_name_is_made_safe_for_a_folder():
+    assert song_path(probe(), ".opus", mood="sad/slow").startswith("sad_slow/")

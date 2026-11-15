@@ -69,3 +69,16 @@ def test_status_counts_songs_space_and_flac(phone):
     assert st.flac_songs == 1
     assert st.flac_bytes == 30
     assert st.free_bytes == 5_000
+
+
+def test_covers_with_no_songs_beside_them_are_removed(phone):
+    phone.files = {
+        "AA/Album/01 - A.opus": b"x",
+        "AA/Album/Folder.jpg": b"x",
+        "gone/Old/Folder.jpg": b"x",
+    }
+
+    removed = manage.remove_orphan_covers(phone)
+
+    assert removed == ["gone/Old/Folder.jpg"]
+    assert "AA/Album/Folder.jpg" in phone.files

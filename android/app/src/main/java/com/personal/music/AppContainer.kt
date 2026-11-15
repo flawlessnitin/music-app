@@ -8,6 +8,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.personal.music.db.MIGRATION_1_2
 import com.personal.music.db.MIGRATION_2_3
 import com.personal.music.db.MIGRATION_3_4
+import com.personal.music.db.MIGRATION_4_5
 import com.personal.music.db.MusicDatabase
 import com.personal.music.db.SongEntity
 import com.personal.music.library.LibraryRepository
@@ -39,7 +40,7 @@ class AppContainer(context: Context) {
 
     val db: MusicDatabase =
         Room.databaseBuilder(appContext, MusicDatabase::class.java, "music.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
             .addCallback(object : RoomDatabase.Callback() {
                 override fun onOpen(db: SupportSQLiteDatabase) {
                     super.onOpen(db)

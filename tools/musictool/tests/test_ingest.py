@@ -76,7 +76,7 @@ def test_a_folder_jpg_next_to_songs_becomes_the_cover(audio, phone, tmp_path):
 
     add([album], phone)
 
-    assert phone.files["Unknown/Unknown/Folder.jpg"] == b"cover-bytes"
+    assert phone.files["mix/Unknown/Unknown/Folder.jpg"] == b"cover-bytes"
 
 
 def test_a_cover_already_on_the_phone_is_not_sent_again(audio, phone):
@@ -122,3 +122,63 @@ def test_non_latin_names_work(audio, phone):
     report = add([audio["hindi_flac"]], phone)
 
     assert report.added[0].rel.endswith("तुम ही हो.opus")
+
+
+def test_a_mood_puts_songs_in_a_mood_folder(audio, phone):
+    report = add([audio["mp3"]], phone, mood="chill")
+
+    assert report.added[0].rel == "chill/Unknown/Unknown/song.mp3"
+
+
+def test_the_folder_name_is_the_mood(audio, phone, tmp_path):
+    folder = tmp_path / "phonk"
+    folder.mkdir()
+    shutil.copy(audio["mp3"], folder / "one.mp3")
+
+    report = add([folder], phone)
+
+    assert report.added[0].rel.startswith("phonk/")
+
+
+def test_files_straight_in_a_folder_called_music_get_no_mood(audio, phone, tmp_path):
+    music = tmp_path / "Music"
+    (music / "sad").mkdir(parents=True)
+    shutil.copy(audio["mp3"], music / "loose.mp3")
+    shutil.copy(audio["m4a"], music / "sad" / "slow.m4a")
+
+    report = add([music], phone)
+
+    rels = sorted(a.rel for a in report.added)
+    assert rels == ["Unknown/Unknown/loose.mp3", "sad/Unknown/Unknown/slow.m4a"]
+
+
+def test_a_song_already_on_the_phone_without_a_mood_is_moved_not_sent_again(audio, phone):
+    add([audio["mp3"]], phone)
+    pushed = len(phone.pushed)
+
+    report = add([audio["mp3"]], phone, mood="chill")
+
+    assert report.moved == [("Unknown/Unknown/song.mp3", "chill/Unknown/Unknown/song.mp3")]
+    assert report.added == []
+    # The song itself is not sent again (only the cover is placed beside it in its new folder).
+    assert [r for r in phone.pushed[pushed:] if r.endswith(".mp3")] == []
+    assert sorted(phone.files) == ["chill/Unknown/Unknown/Folder.jpg", "chill/Unknown/Unknown/song.mp3"]
+
+
+def test_moving_takes_the_cover_along_and_leaves_no_stray_cover(audio, phone):
+    add([audio["tagged_flac"]], phone)
+    assert "AA/Album/Folder.jpg" in phone.files
+
+    add([audio["tagged_flac"]], phone, mood="sad")
+
+    assert "sad/AA/Album/Folder.jpg" in phone.files
+    assert "AA/Album/Folder.jpg" not in phone.files
+
+
+def test_the_same_song_in_its_mood_is_already_present(audio, phone):
+    add([audio["mp3"]], phone, mood="chill")
+
+    report = add([audio["mp3"]], phone, mood="chill")
+
+    assert report.already_present == [audio["mp3"]]
+    assert report.moved == []

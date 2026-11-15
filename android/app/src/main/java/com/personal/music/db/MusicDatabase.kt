@@ -16,8 +16,9 @@ import androidx.sqlite.execSQL
         PlaylistSongEntity::class,
         LikedSongEntity::class,
         RecentPlayEntity::class,
+        MoodOverrideEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class MusicDatabase : RoomDatabase() {
@@ -121,3 +122,30 @@ val MIGRATION_3_4: Migration = object : Migration(3, 4) {
 }
 
 private const val ADD_LOCAL_COLUMN = "ALTER TABLE `songs` ADD COLUMN `local` INTEGER NOT NULL DEFAULT 0"
+
+private const val ADD_MOOD_COLUMN = "ALTER TABLE `songs` ADD COLUMN `mood` TEXT"
+
+private const val CREATE_MOOD_OVERRIDES_TABLE = """
+    CREATE TABLE IF NOT EXISTS `mood_overrides` (
+        `songId` TEXT NOT NULL,
+        `mood` TEXT NOT NULL,
+        PRIMARY KEY(`songId`),
+        FOREIGN KEY(`songId`) REFERENCES `songs`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+    )
+"""
+
+val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(ADD_MOOD_COLUMN)
+        db.execSQL(CREATE_MOOD_OVERRIDES_TABLE)
+    }
+
+    override fun migrate(connection: SQLiteConnection) {
+        if (connection is SupportSQLiteConnection) {
+            super.migrate(connection)
+        } else {
+            connection.execSQL(ADD_MOOD_COLUMN)
+            connection.execSQL(CREATE_MOOD_OVERRIDES_TABLE)
+        }
+    }
+}

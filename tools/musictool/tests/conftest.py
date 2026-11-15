@@ -131,6 +131,7 @@ class FakePhone:
         self.opened = 0
         self.fail_on: set[str] = set()
         self.pushed: list[str] = []
+        self.moved: list[tuple[str, str]] = []
 
     def list_files(self) -> list[PhoneFile]:
         return [PhoneFile(rel, len(data)) for rel, data in sorted(self.files.items())]
@@ -143,6 +144,12 @@ class FakePhone:
 
     def delete(self, rel: str) -> None:
         self.files.pop(rel, None)
+
+    def move(self, src: str, dst: str) -> None:
+        if src not in self.files:
+            raise PhoneError(f"No such file on the phone: {src}")
+        self.files[dst] = self.files.pop(src)
+        self.moved.append((src, dst))
 
     def free_bytes(self) -> int:
         return self.free

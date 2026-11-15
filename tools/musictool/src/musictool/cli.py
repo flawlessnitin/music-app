@@ -45,6 +45,11 @@ def _build_parser() -> argparse.ArgumentParser:
     p_add = sub.add_parser("add", help="Send songs to the phone")
     p_add.add_argument("paths", nargs="+", help="Audio files or folders to send")
     p_add.add_argument(
+        "--mood",
+        default=None,
+        help="Put the songs in this mood (a folder on the phone). Without it, a folder's name is the mood.",
+    )
+    p_add.add_argument(
         "--lossless",
         action="store_true",
         help="Keep lossless files as FLAC instead of converting to Opus",
@@ -72,6 +77,10 @@ def _open_app(phone: Phone) -> None:
 def _print_add_report(report: ingest.AddReport) -> None:
     print("\nSummary:")
     print(f"  Added: {len(report.added)}")
+    if report.moved:
+        print(f"  Moved: {len(report.moved)}")
+        for old, new in report.moved:
+            print(f"    {old} -> {new}")
     if report.already_present:
         print(f"  Already on the phone: {len(report.already_present)}")
         for p in report.already_present:
@@ -123,11 +132,12 @@ def main(argv: list[str] | None = None, phone: Phone | None = None) -> int:
                 [Path(p) for p in args.paths],
                 phone=phone,
                 keep_lossless=args.lossless,
+                mood=args.mood,
                 # Flush so each song shows as it finishes, even when output is piped.
                 on_progress=lambda message: print(message, flush=True),
             )
             _print_add_report(report)
-            if report.added:
+            if report.added or report.moved:
                 _open_app(phone)
             return 1 if report.failed else 0
 

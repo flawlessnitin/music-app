@@ -90,3 +90,19 @@ def test_unicode_output_does_not_crash_on_a_narrow_console(audio, phone, monkeyp
     monkeypatch.setattr("sys.stdout", narrow)
 
     assert main(["list"], phone=phone) == 0
+
+
+def test_mood_option_files_songs_under_a_mood(audio, phone):
+    assert main(["add", "--mood", "chill", str(audio["mp3"])], phone=phone) == 0
+
+    assert any(r.startswith("chill/") for r in phone.files)
+
+
+def test_adding_again_with_a_mood_reports_the_move(audio, phone, capsys):
+    main(["add", str(audio["mp3"])], phone=phone)
+    capsys.readouterr()
+
+    assert main(["add", "--mood", "chill", str(audio["mp3"])], phone=phone) == 0
+
+    assert "Moved: 1" in capsys.readouterr().out
+    assert phone.opened >= 2

@@ -28,6 +28,7 @@ class Phone(Protocol):
     def list_files(self) -> list[PhoneFile]: ...
     def put_file(self, rel: str, path: Path) -> None: ...
     def delete(self, rel: str) -> None: ...
+    def move(self, src: str, dst: str) -> None: ...
     def free_bytes(self) -> int: ...
     def open_app(self) -> None: ...
 
@@ -160,6 +161,17 @@ class AdbPhone:
         if result.returncode != 0:
             raise PhoneError(f"Could not delete {rel}: {self._text(result).strip()}")
         # Tidy up folders that are now empty.
+        self._shell(f"find {_quote(MUSIC_DIR)} -mindepth 1 -type d -empty -delete")
+
+    def move(self, src: str, dst: str) -> None:
+        """Rename a file on the phone itself, so nothing has to be sent again."""
+        folder = f"{MUSIC_DIR}/{dst}".rsplit("/", 1)[0]
+        made = self._shell(f"mkdir -p {_quote(folder)}")
+        if made.returncode != 0:
+            raise PhoneError(f"Could not make {folder} on the phone: {self._text(made).strip()}")
+        moved = self._shell(f"mv -f {_quote(f'{MUSIC_DIR}/{src}')} {_quote(f'{MUSIC_DIR}/{dst}')}")
+        if moved.returncode != 0:
+            raise PhoneError(f"Could not move {src}: {self._text(moved).strip()}")
         self._shell(f"find {_quote(MUSIC_DIR)} -mindepth 1 -type d -empty -delete")
 
     def free_bytes(self) -> int:

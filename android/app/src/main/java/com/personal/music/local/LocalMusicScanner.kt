@@ -71,7 +71,19 @@ class LocalMusicScanner(
             cover = saveCover(id, tags.cover, folder),
             downloaded = true,
             local = true,
+            mood = moodOf(file),
         )
+    }
+
+    /**
+     * The mood is the first folder under the music folder when that folder holds songs directly
+     * (`phonk/song.mp3`) or sits above artist and album folders (`sad/Artist/Album/song.mp3`).
+     * `Artist/Album/song.mp3` has no mood: there the first folder is an artist.
+     */
+    private fun moodOf(file: File): String? {
+        val parts = file.relativeTo(dir).path.replace('\\', '/').split('/')
+        val folders = parts.size - 1
+        return if (folders == 1 || folders >= 3) parts[0].trim().ifEmpty { null } else null
     }
 
     private fun saveCover(id: String, embedded: ByteArray?, folder: File?): String? {

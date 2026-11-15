@@ -25,8 +25,13 @@ def _folder(probe: Probe) -> str:
     return f"{sanitize(probe.album_artist or probe.artist)}/{sanitize(probe.album)}"
 
 
-def song_path(probe: Probe, ext: str) -> str:
-    """Path of the song on the phone, relative to its Music folder."""
+def _mood_prefix(mood: str | None) -> str:
+    cleaned = (mood or "").strip()
+    return f"{sanitize(cleaned)}/" if cleaned else ""
+
+
+def song_path(probe: Probe, ext: str, mood: str | None = None) -> str:
+    """Path of the song on the phone, relative to its Music folder. A mood adds a folder on top."""
     if probe.track is None:
         prefix = ""
     elif probe.disc is not None and probe.disc > 1:
@@ -36,8 +41,8 @@ def song_path(probe: Probe, ext: str) -> str:
 
     title = sanitize(probe.title)
     room = _MAX_FILE_NAME - len(prefix) - len(ext)
-    return f"{_folder(probe)}/{prefix}{title[:room].rstrip(' .')}{ext}"
+    return f"{_mood_prefix(mood)}{_folder(probe)}/{prefix}{title[:room].rstrip(' .')}{ext}"
 
 
-def cover_path(probe: Probe) -> str:
-    return f"{_folder(probe)}/{COVER_NAME}"
+def cover_path(probe: Probe, mood: str | None = None) -> str:
+    return f"{_mood_prefix(mood)}{_folder(probe)}/{COVER_NAME}"

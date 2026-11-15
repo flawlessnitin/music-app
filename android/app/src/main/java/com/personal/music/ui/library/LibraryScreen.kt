@@ -65,7 +65,7 @@ import com.personal.music.ui.player.MiniPlayer
 import java.io.File
 
 enum class LibraryTab {
-    Songs, Albums, Artists, Liked, Recent
+    Songs, Moods, Albums, Artists, Liked, Recent
 }
 
 fun formatDuration(durationMs: Long): String {
@@ -82,6 +82,8 @@ fun LibraryScreen(
     player: PlayerControls = viewModel.player,
     onAlbumClick: (albumArtist: String, album: String) -> Unit = { _, _ -> },
     onArtistClick: (name: String) -> Unit = {},
+    onMoodClick: (name: String) -> Unit = {},
+    onSetMood: (SongEntity) -> Unit = {},
     onOpenPlayer: () -> Unit = {},
     coverFile: (SongEntity) -> File? = { null },
     onAddToPlaylist: (SongEntity) -> Unit = {},
@@ -96,6 +98,7 @@ fun LibraryScreen(
     val songs by viewModel.songs.collectAsState()
     val albums by viewModel.albums.collectAsState()
     val artists by viewModel.artists.collectAsState()
+    val moods by viewModel.moods.collectAsState()
 
     var selectedTab by remember { mutableStateOf(LibraryTab.Songs) }
 
@@ -203,7 +206,7 @@ fun LibraryScreen(
                         }
                     } else {
                         LazyColumn(modifier = Modifier.fillMaxSize()) {
-                            item { ShuffleButton(onClick = { player.playShuffled(songs) }) }
+                            item { ShuffleButton(onClick = { player.playShuffled(songs) }, label = "Shuffle all") }
                             itemsIndexed(
                                 items = songs,
                                 key = { _, song -> song.id },
@@ -217,7 +220,32 @@ fun LibraryScreen(
                                     coverFile = coverFile,
                                     liked = song.id in likedIds,
                                     onToggleLike = { onToggleLike(song) },
+                                    onSetMood = { onSetMood(song) },
                                 )
+                            }
+                        }
+                    }
+                }
+
+                LibraryTab.Moods -> {
+                    if (moods.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(24.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = "No moods yet. Put songs in folders like phonk or sad, or press and hold a song and choose Set mood.",
+                                style = MaterialTheme.typography.bodyLarge,
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    } else {
+                        LazyColumn(modifier = Modifier.fillMaxSize()) {
+                            items(items = moods, key = { it.name }) { mood ->
+                                MoodRow(mood = mood, onClick = { onMoodClick(mood.name) })
                             }
                         }
                     }
@@ -261,6 +289,7 @@ fun LibraryScreen(
                     coverFile = coverFile,
                     onAddToPlaylist = onAddToPlaylist,
                     onToggleLike = onToggleLike,
+                    onSetMood = onSetMood,
                 )
 
                 LibraryTab.Recent -> SongListTab(
@@ -271,6 +300,7 @@ fun LibraryScreen(
                     coverFile = coverFile,
                     onAddToPlaylist = onAddToPlaylist,
                     onToggleLike = onToggleLike,
+                    onSetMood = onSetMood,
                 )
 
                 LibraryTab.Artists -> {
@@ -319,6 +349,7 @@ fun SongRow(
     modifier: Modifier = Modifier,
     liked: Boolean = false,
     onToggleLike: (() -> Unit)? = null,
+    onSetMood: (() -> Unit)? = null,
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -452,6 +483,15 @@ fun SongRow(
                     },
                 )
             }
+            if (onSetMood != null) {
+                DropdownMenuItem(
+                    text = { Text("Set mood") },
+                    onClick = {
+                        showMenu = false
+                        onSetMood()
+                    },
+                )
+            }
             DropdownMenuItem(
                 text = { Text("Add to playlist") },
                 onClick = {
@@ -551,6 +591,7 @@ private fun SongListTab(
     coverFile: (SongEntity) -> File?,
     onAddToPlaylist: (SongEntity) -> Unit,
     onToggleLike: (SongEntity) -> Unit,
+    onSetMood: (SongEntity) -> Unit,
 ) {
     if (songs.isEmpty()) {
         Box(
@@ -579,8 +620,40 @@ private fun SongListTab(
                     coverFile = coverFile,
                     liked = song.id in likedIds,
                     onToggleLike = { onToggleLike(song) },
+                    onSetMood = { onSetMood(song) },
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun MoodRow(
+    mood: com.personal.music.db.Mood,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = mood.name,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = "${mood.songCount} ${if (mood.songCount == 1) "song" else "songs"}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

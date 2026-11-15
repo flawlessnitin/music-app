@@ -144,3 +144,21 @@ def test_half_sent_files_are_not_listed_as_songs():
     text = "\n".join([f"10|{MUSIC_DIR}/AA/Album/01 - A.opus", f"5|{MUSIC_DIR}/AA/Album/02 - B.opus.part"])
 
     assert [f.rel for f in parse_find(text)] == ["AA/Album/01 - A.opus"]
+
+
+def test_move_makes_the_folder_then_renames_on_the_phone():
+    p, rec = phone()
+
+    p.move("AA/Album/01 - A.opus", "phonk/AA/Album/01 - A.opus")
+
+    joined = [" ".join(c) for c in rec.calls]
+    assert any("mkdir -p" in c and "phonk/AA/Album" in c for c in joined)
+    assert any(" mv -f " in c and "01 - A.opus" in c and "phonk/AA/Album" in c for c in joined)
+    assert any("-empty -delete" in c for c in joined)
+
+
+def test_a_failed_move_is_reported():
+    p, _ = phone({"mv -f": (1, "mv: no such file")})
+
+    with pytest.raises(PhoneError):
+        p.move("a.opus", "b/a.opus")

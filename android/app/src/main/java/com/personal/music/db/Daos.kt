@@ -20,6 +20,27 @@ interface SongDao {
     @Query("SELECT * FROM songs WHERE id = :id")
     suspend fun getSong(id: String): SongEntity?
 
+    @Query("""
+        SELECT mood AS name, COUNT(*) AS songCount
+        FROM songs
+        WHERE mood IS NOT NULL AND mood != ''
+        GROUP BY mood
+        ORDER BY mood COLLATE NOCASE ASC
+    """)
+    fun getMoodsFlow(): Flow<List<Mood>>
+
+    @Query("SELECT * FROM songs WHERE mood = :mood ORDER BY title COLLATE NOCASE ASC")
+    fun getMoodSongsFlow(mood: String): Flow<List<SongEntity>>
+
+    @Query("UPDATE songs SET mood = :mood WHERE id = :id")
+    suspend fun updateMood(id: String, mood: String?)
+
+    @Upsert
+    suspend fun upsertMoodOverride(override: MoodOverrideEntity)
+
+    @Query("SELECT * FROM mood_overrides")
+    suspend fun getMoodOverrides(): List<MoodOverrideEntity>
+
     @Query("SELECT * FROM songs")
     suspend fun getAllSongsList(): List<SongEntity>
 

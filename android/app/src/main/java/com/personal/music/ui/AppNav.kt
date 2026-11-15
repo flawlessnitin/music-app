@@ -47,6 +47,8 @@ import com.personal.music.ui.library.AlbumScreen
 import com.personal.music.ui.library.ArtistScreen
 import com.personal.music.ui.library.LibraryScreen
 import com.personal.music.ui.library.LibraryViewModel
+import com.personal.music.ui.library.MoodScreen
+import com.personal.music.ui.library.SetMoodDialog
 import com.personal.music.ui.player.MiniPlayer
 import com.personal.music.ui.player.PlayerScreen
 import com.personal.music.ui.playlists.AddToPlaylistSheet
@@ -178,6 +180,8 @@ fun AppNav(
         },
     )
     var songToAddToPlaylist by remember { mutableStateOf<SongEntity?>(null) }
+    var songToSetMood by remember { mutableStateOf<SongEntity?>(null) }
+    val allMoods by remember(container) { container.library.moods() }.collectAsState(initial = emptyList())
 
     val likedIds by remember(container) { container.listening.likedIds() }.collectAsState(initial = emptySet())
     val likedSongs by remember(container) { container.listening.likedSongs() }.collectAsState(initial = emptyList())
@@ -200,6 +204,10 @@ fun AppNav(
                 onArtistClick = { name ->
                     navController.navigate("artist/${Uri.encode(name)}")
                 },
+                onMoodClick = { name ->
+                    navController.navigate("mood/${Uri.encode(name)}")
+                },
+                onSetMood = { song -> songToSetMood = song },
                 onOpenPlayer = {
                     navController.navigate("player")
                 },
@@ -235,6 +243,24 @@ fun AppNav(
                 onBack = { navController.popBackStack() },
                 coverFile = { song -> song.cover?.let { container.coverFile(it) } },
                 onAddToPlaylist = { song -> songToAddToPlaylist = song },
+            )
+        }
+
+        composable(
+            route = "mood/{name}",
+            arguments = listOf(
+                navArgument("name") { type = NavType.StringType },
+            ),
+        ) { backStackEntry ->
+            val name = Uri.decode(backStackEntry.arguments?.getString("name").orEmpty())
+            MoodScreen(
+                moodName = name,
+                repository = container.library,
+                player = container.player,
+                onBack = { navController.popBackStack() },
+                coverFile = { song -> song.cover?.let { container.coverFile(it) } },
+                onAddToPlaylist = { song -> songToAddToPlaylist = song },
+                onSetMood = { song -> songToSetMood = song },
             )
         }
 
@@ -324,6 +350,19 @@ fun AppNav(
                 )
             }
         }
+    }
+
+    songToSetMood?.let { song ->
+        SetMoodDialog(
+            songTitle = song.title,
+            currentMood = song.mood,
+            existingMoods = allMoods.map { it.name },
+            onPick = { mood ->
+                listeningScope.launch { container.library.setMood(song.id, mood) }
+                songToSetMood = null
+            },
+            onDismiss = { songToSetMood = null },
+        )
     }
 
     songToAddToPlaylist?.let { song ->
