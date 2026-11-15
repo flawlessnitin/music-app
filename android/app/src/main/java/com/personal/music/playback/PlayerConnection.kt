@@ -50,9 +50,9 @@ data class PlayerState(
 class PlayerConnection(
     private val scope: CoroutineScope,
     private val toMediaItem: (SongEntity) -> MediaItem,
-) : Player.Listener {
+) : PlayerControls, Player.Listener {
     private val _state = MutableStateFlow(PlayerState())
-    val state: StateFlow<PlayerState> = _state.asStateFlow()
+    override val state: StateFlow<PlayerState> = _state.asStateFlow()
 
     private var player: Player? = null
     private val waiting = ArrayDeque<(Player) -> Unit>()
@@ -65,25 +65,25 @@ class PlayerConnection(
         refresh()
     }
 
-    fun play(songs: List<SongEntity>, startIndex: Int) = withPlayer { p ->
+    override fun play(songs: List<SongEntity>, startIndex: Int) = withPlayer { p ->
         if (songs.isEmpty()) return@withPlayer
         p.setMediaItems(songs.map(toMediaItem), startIndex.coerceIn(0, songs.lastIndex), 0L)
         p.prepare()
         p.play()
     }
 
-    fun playNext(song: SongEntity) = withPlayer { p ->
+    override fun playNext(song: SongEntity) = withPlayer { p ->
         val at = if (p.mediaItemCount == 0) 0 else p.currentMediaItemIndex + 1
         p.addMediaItem(at, toMediaItem(song))
         startIfIdle(p)
     }
 
-    fun addToQueue(song: SongEntity) = withPlayer { p ->
+    override fun addToQueue(song: SongEntity) = withPlayer { p ->
         p.addMediaItem(toMediaItem(song))
         startIfIdle(p)
     }
 
-    fun togglePlay() = withPlayer { p ->
+    override fun togglePlay() = withPlayer { p ->
         if (p.isPlaying) {
             p.pause()
         } else {
@@ -93,16 +93,16 @@ class PlayerConnection(
         }
     }
 
-    fun next() = withPlayer { if (it.hasNextMediaItem()) it.seekToNextMediaItem() }
+    override fun next() = withPlayer { if (it.hasNextMediaItem()) it.seekToNextMediaItem() }
 
     /** Restarts the song when more than a few seconds in, otherwise goes to the previous one. */
-    fun previous() = withPlayer { it.seekToPrevious() }
+    override fun previous() = withPlayer { it.seekToPrevious() }
 
-    fun seekTo(positionMs: Long) = withPlayer { it.seekTo(positionMs) }
+    override fun seekTo(positionMs: Long) = withPlayer { it.seekTo(positionMs) }
 
-    fun setShuffle(on: Boolean) = withPlayer { it.shuffleModeEnabled = on }
+    override fun setShuffle(on: Boolean) = withPlayer { it.shuffleModeEnabled = on }
 
-    fun cycleRepeat() = withPlayer { p ->
+    override fun cycleRepeat() = withPlayer { p ->
         p.repeatMode = when (p.repeatMode) {
             Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
             Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
@@ -110,15 +110,15 @@ class PlayerConnection(
         }
     }
 
-    fun moveQueueItem(from: Int, to: Int) = withPlayer { p ->
+    override fun moveQueueItem(from: Int, to: Int) = withPlayer { p ->
         if (from in 0 until p.mediaItemCount && to in 0 until p.mediaItemCount) p.moveMediaItem(from, to)
     }
 
-    fun removeQueueItem(index: Int) = withPlayer { p ->
+    override fun removeQueueItem(index: Int) = withPlayer { p ->
         if (index in 0 until p.mediaItemCount) p.removeMediaItem(index)
     }
 
-    fun jumpTo(index: Int) = withPlayer { p ->
+    override fun jumpTo(index: Int) = withPlayer { p ->
         if (index in 0 until p.mediaItemCount) {
             p.seekTo(index, 0L)
             if (p.playbackState == Player.STATE_IDLE) p.prepare()
@@ -126,7 +126,7 @@ class PlayerConnection(
         }
     }
 
-    fun clearError() = _state.update { it.copy(error = null) }
+    override fun clearError() = _state.update { it.copy(error = null) }
 
     override fun onEvents(player: Player, events: Player.Events) = refresh()
 
