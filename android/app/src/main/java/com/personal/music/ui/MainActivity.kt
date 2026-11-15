@@ -1,6 +1,7 @@
 package com.personal.music.ui
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -27,6 +28,12 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         // Songs sent from the PC while the app was closed show up as soon as it opens.
+        (application as? MusicApp)?.container?.rescanInBackground()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // musictool opens the app after sending songs; if it is already open, look for them now.
         (application as? MusicApp)?.container?.rescanInBackground()
     }
 
