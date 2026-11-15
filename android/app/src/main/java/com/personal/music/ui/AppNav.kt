@@ -9,12 +9,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModel
@@ -28,6 +33,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.personal.music.AppContainer
+import com.personal.music.db.SongEntity
 import com.personal.music.library.LibraryRepository
 import com.personal.music.playback.PlayerControls
 import com.personal.music.ui.library.AlbumScreen
@@ -36,6 +42,9 @@ import com.personal.music.ui.library.LibraryScreen
 import com.personal.music.ui.library.LibraryViewModel
 import com.personal.music.ui.player.MiniPlayer
 import com.personal.music.ui.player.PlayerScreen
+import com.personal.music.ui.playlists.AddToPlaylistSheet
+import com.personal.music.ui.playlists.PlaylistScreen
+import com.personal.music.ui.playlists.PlaylistsScreen
 
 class LibraryViewModelFactory(
     private val repository: LibraryRepository,
@@ -123,6 +132,7 @@ fun AppBottomBar(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppNav(
     container: AppContainer,
@@ -132,6 +142,7 @@ fun AppNav(
     val libraryViewModel: LibraryViewModel = viewModel(
         factory = LibraryViewModelFactory(container.library, container.player),
     )
+    var songToAddToPlaylist by remember { mutableStateOf<SongEntity?>(null) }
 
     NavHost(
         navController = navController,
@@ -152,7 +163,7 @@ fun AppNav(
                     navController.navigate("player")
                 },
                 coverFile = { song -> song.cover?.let { container.downloader.coverFile(it) } },
-                onAddToPlaylist = { /* Wire in Task 9 */ },
+                onAddToPlaylist = { song -> songToAddToPlaylist = song },
                 bottomBar = {
                     AppBottomBar(
                         navController = navController,
@@ -178,7 +189,7 @@ fun AppNav(
                 player = container.player,
                 onBack = { navController.popBackStack() },
                 coverFile = { song -> song.cover?.let { container.downloader.coverFile(it) } },
-                onAddToPlaylist = { /* Wire in Task 9 */ },
+                onAddToPlaylist = { song -> songToAddToPlaylist = song },
             )
         }
 
@@ -195,7 +206,7 @@ fun AppNav(
                 player = container.player,
                 onBack = { navController.popBackStack() },
                 coverFile = { song -> song.cover?.let { container.downloader.coverFile(it) } },
-                onAddToPlaylist = { /* Wire in Task 9 */ },
+                onAddToPlaylist = { song -> songToAddToPlaylist = song },
             )
         }
 
@@ -207,12 +218,15 @@ fun AppNav(
         }
 
         composable("playlists") {
-            Scaffold(
+            PlaylistsScreen(
+                repository = container.playlists,
+                onPlaylistClick = { id -> navController.navigate("playlist/$id") },
                 bottomBar = {
                     Column {
                         MiniPlayer(
                             player = container.player,
                             onOpenPlayer = { navController.navigate("player") },
+                            coverFile = { cover -> container.downloader.coverFile(cover) },
                         )
                         AppBottomBar(
                             navController = navController,
@@ -220,31 +234,23 @@ fun AppNav(
                         )
                     }
                 },
-            ) { padding ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(text = "Playlists Screen")
-                }
-            }
+            )
         }
 
         composable(
             route = "playlist/{id}",
             arguments = listOf(
-                navArgument("id") { type = NavType.StringType },
+                navArgument("id") { type = NavType.LongType },
             ),
         ) { backStackEntry ->
-            val id = backStackEntry.arguments?.getString("id").orEmpty()
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(text = "Playlist $id")
-            }
+            val id = backStackEntry.arguments?.getLong("id") ?: 0L
+            PlaylistScreen(
+                playlistId = id,
+                repository = container.playlists,
+                player = container.player,
+                onBack = { navController.popBackStack() },
+                coverFile = { song -> song.cover?.let { container.downloader.coverFile(it) } },
+            )
         }
 
         composable("settings") {
@@ -272,5 +278,13 @@ fun AppNav(
                 }
             }
         }
+    }
+
+    songToAddToPlaylist?.let { song ->
+        AddToPlaylistSheet(
+            song = song,
+            repository = container.playlists,
+            onDismiss = { songToAddToPlaylist = null },
+        )
     }
 }

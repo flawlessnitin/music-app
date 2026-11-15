@@ -4,15 +4,19 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import androidx.room.Room
+import androidx.room.RoomDatabase
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.personal.music.b2.B2Client
+import com.personal.music.db.MIGRATION_1_2
 import com.personal.music.db.MusicDatabase
 import com.personal.music.db.SongEntity
+import com.personal.music.library.LibraryRepository
 import com.personal.music.playback.MediaItems
 import com.personal.music.playback.PlayerConnection
+import com.personal.music.playlists.PlaylistRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import com.personal.music.library.LibraryRepository
 import com.personal.music.settings.SettingsStore
 import com.personal.music.sync.Downloader
 import com.personal.music.sync.FreeSpace
@@ -29,9 +33,19 @@ class AppContainer(context: Context) {
     val settings = SettingsStore(appContext)
 
     val db: MusicDatabase =
-        Room.databaseBuilder(appContext, MusicDatabase::class.java, "music.db").build()
+        Room.databaseBuilder(appContext, MusicDatabase::class.java, "music.db")
+            .addMigrations(MIGRATION_1_2)
+            .addCallback(object : RoomDatabase.Callback() {
+                override fun onOpen(db: SupportSQLiteDatabase) {
+                    super.onOpen(db)
+                    db.execSQL("PRAGMA foreign_keys = ON;")
+                }
+            })
+            .build()
 
     val library = LibraryRepository(db)
+    val playlists = PlaylistRepository(db)
+    val playlistRepository = playlists
 
     val http: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
