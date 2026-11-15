@@ -63,6 +63,12 @@ class PlayerConnectionTest {
     }
     private fun ids() = connection.state.value.queue.map { it.songId }
 
+    /** Loads the queue straight into the player without starting playback. */
+    private fun queue(startIndex: Int, vararg songs: SongEntity) {
+        player.setMediaItems(songs.map { MediaItems.from(it, null, null) }, startIndex, 0L)
+        settle()
+    }
+
     @Test
     fun `play sets the queue and starts at the chosen index`() {
         connection.play(listOf(a, b, c), startIndex = 1)
@@ -193,26 +199,25 @@ class PlayerConnectionTest {
 
     @Test
     fun `a failing item is skipped and the error is reported`() {
+        // Queue without preparing, so the only error in play is the one this test delivers.
         val skipper = SkipOnError(player)
-        player.addListener(skipper)
-        connection.play(listOf(a, b), startIndex = 0)
+        queue(0, a, b)
 
         val error = PlaybackException("source error", java.io.IOException("No internet connection"), PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)
-        skipper.onPlayerError(error)
         connection.onPlayerError(error)
-        settle()
-
-        assertEquals("b", connection.state.value.current!!.songId)
-        assertTrue(connection.state.value.error!!.contains("No internet connection"))
-
+        assertEquals("Could not play Song a: No internet connection", connection.state.value.error)
         connection.clearError()
         assertNull(connection.state.value.error)
+
+        skipper.onPlayerError(error)
+        settle()
+        assertEquals("b", connection.state.value.current!!.songId)
     }
 
     @Test
     fun `skipping stops after five failures in a row`() {
         val skipper = SkipOnError(player)
-        connection.play(listOf(a, b), startIndex = 0)
+        queue(0, a, b)
         player.repeatMode = Player.REPEAT_MODE_ALL
         val error = PlaybackException("x", null, PlaybackException.ERROR_CODE_IO_UNSPECIFIED)
 
@@ -230,7 +235,7 @@ class PlayerConnectionTest {
     @Test
     fun `the last item failing does not wrap around`() {
         val skipper = SkipOnError(player)
-        connection.play(listOf(a, b), startIndex = 1)
+        queue(1, a, b)
 
         skipper.onPlayerError(PlaybackException("x", null, PlaybackException.ERROR_CODE_IO_UNSPECIFIED))
         settle()
