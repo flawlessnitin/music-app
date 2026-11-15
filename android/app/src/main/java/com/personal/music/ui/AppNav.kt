@@ -150,7 +150,7 @@ fun AppNav(
                 onOpenPlayer = {
                     navController.navigate("player")
                 },
-                coverFile = { song -> container.coverFile(song) },
+                coverFile = { song -> song.cover?.let { container.downloader.coverFile(it) } },
                 onAddToPlaylist = { /* Wire in Task 9 */ },
                 bottomBar = {
                     AppBottomBar(
@@ -176,7 +176,7 @@ fun AppNav(
                 repository = container.library,
                 player = container.player,
                 onBack = { navController.popBackStack() },
-                coverFile = { song -> container.coverFile(song) },
+                coverFile = { song -> song.cover?.let { container.downloader.coverFile(it) } },
                 onAddToPlaylist = { /* Wire in Task 9 */ },
             )
         }
@@ -193,7 +193,7 @@ fun AppNav(
                 repository = container.library,
                 player = container.player,
                 onBack = { navController.popBackStack() },
-                coverFile = { song -> container.coverFile(song) },
+                coverFile = { song -> song.cover?.let { container.downloader.coverFile(it) } },
                 onAddToPlaylist = { /* Wire in Task 9 */ },
             )
         }

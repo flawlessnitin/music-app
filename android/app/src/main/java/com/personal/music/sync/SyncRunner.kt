@@ -103,6 +103,9 @@ class SyncRunner(
         var done = 0
         onProgress(done, plan.toDownload.size)
         for (song in plan.toDownload) {
+            // Cover first: the screen redraws the moment the song is marked downloaded,
+            // and the cover must already be on disk by then.
+            song.cover?.let { fetchCover(it) }
             try {
                 downloader.downloadSong(song)
             } catch (e: B2Exception.NotFound) {
@@ -110,7 +113,6 @@ class SyncRunner(
                 continue
             }
             library.setDownloaded(song.id, true)
-            song.cover?.let { fetchCover(it) }
             done++
             onProgress(done, plan.toDownload.size)
         }

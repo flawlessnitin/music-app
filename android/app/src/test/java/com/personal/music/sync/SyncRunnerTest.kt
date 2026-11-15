@@ -347,6 +347,16 @@ class SyncRunnerTest {
     }
 
     @Test
+    fun `a songs cover is fetched before the song is marked downloaded`() = runBlocking {
+        publish(1, "a")
+
+        runner().run()
+
+        val requests = bucket.requested.toList()
+        assertTrue(requests.indexOf("covers/a.jpg") in 0 until requests.indexOf("songs/a.opus"))
+    }
+
+    @Test
     fun `progress is reported per downloaded song`() = runBlocking {
         publish(1, "a", "b")
         val seen = mutableListOf<Pair<Int, Int>>()

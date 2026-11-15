@@ -279,8 +279,10 @@ fun SongRow(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Cover
-            val file = remember(song.id, song.cover) { coverFile(song) }
+            // Cover. The note icon is always drawn underneath, so a missing or not yet
+            // downloaded image simply leaves the icon showing. Keyed on `downloaded` so the
+            // image is requested again once the song (and its cover) has arrived.
+            val file = remember(song.id, song.cover, song.downloaded) { coverFile(song) }
             Box(
                 modifier = Modifier
                     .size(48.dp)
@@ -288,19 +290,18 @@ fun SongRow(
                     .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center,
             ) {
+                Icon(
+                    imageVector = Icons.Default.MusicNote,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 if (file != null) {
                     AsyncImage(
                         model = file,
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.MusicNote,
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
