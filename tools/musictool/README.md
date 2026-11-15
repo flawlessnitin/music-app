@@ -45,7 +45,9 @@ To keep lossless files as FLAC instead of converting them to Opus:
 musictool add --lossless "D:\Music\Purchases\favorite_track.flac"
 ```
 
-Songs land on the phone as `Artist/Album/03 - Title.opus`, with `Folder.jpg` (the cover) next to them. A `Folder.jpg` or `cover.jpg` beside your files is used when the songs have no art inside. Adding the same song twice sends it only once. When it finishes, the tool opens the app so it picks up the new songs.
+Songs land on the phone as `Mood/Artist/Album/03 - Title.opus`, with `Folder.jpg` (the cover) next to them.
+
+**Moods.** The folder you add is the mood: `musictool add D:\Music\phonk` puts those songs in the mood `phonk`. If you add a folder called `Music`, each folder inside it is a mood, and songs straight in `Music` have none. Files given one by one have no mood. Use `--mood sad` to choose the mood yourself. Adding a song again with a mood moves the copy already on the phone into that mood instead of sending it again. A `Folder.jpg` or `cover.jpg` beside your files is used when the songs have no art inside. Adding the same song twice sends it only once. When it finishes, the tool opens the app so it picks up the new songs.
 
 The summary lists what was added, what was already there, files skipped (with the reason), songs with missing tags, songs that did not fit on the phone, and any failures.
 

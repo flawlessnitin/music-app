@@ -65,7 +65,8 @@ The app reads title, artist, album, track and year from the file's tags. A `Fold
 
 ## 4. What the app does
 
-- **Library:** Songs, Albums, Artists, Liked and Recent tabs, search, and a **Shuffle play** button.
+- **Library:** Songs, Moods, Albums, Artists, Liked and Recent tabs, search, and a **Shuffle all** button.
+- **Moods:** the first folder under `Music` is the mood (`Music/phonk/...`, or `Music/sad/Artist/Album/...`). The Moods tab lists them, and a mood's screen plays and shuffles only that mood, so moods never get mixed. Press and hold any song and choose **Set mood** to change it (chosen moods are remembered and a rescan does not undo them).
 - **Player:** play/pause, next/previous, seek, shuffle, repeat, a queue you can reorder, like (heart), playback speed, and a sleep timer. Lock screen, notification and headset controls come from the media session.
 - **Playlists:** make them, add songs, reorder.
 - **Resume:** the queue and position from last time come back when you open the app.
