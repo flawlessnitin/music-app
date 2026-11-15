@@ -118,4 +118,13 @@ class SettingsStoreTest {
         store.saveSession(SavedSession(emptyList(), 0, 0))
         assertNull(store.session())
     }
+
+    @Test
+    fun `the sound preset defaults to off and is remembered`() = runTest {
+        assertEquals(com.personal.music.playback.EqPreset.OFF, store.eqPreset.first())
+
+        store.setEqPreset(com.personal.music.playback.EqPreset.BASS)
+
+        assertEquals(com.personal.music.playback.EqPreset.BASS, store.eqPreset.first())
+    }
 }

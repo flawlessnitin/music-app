@@ -84,6 +84,7 @@ fun PlayerScreen(
     val current = state.current
     var showQueueSheet by remember { mutableStateOf(false) }
     var showSleepDialog by remember { mutableStateOf(false) }
+    var showSpeedDialog by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -94,6 +95,17 @@ fun PlayerScreen(
             snackbarHostState.showSnackbar(error)
         }
         player.clearError()
+    }
+
+    if (showSpeedDialog) {
+        SpeedDialog(
+            current = state.speed,
+            onPick = { speed ->
+                player.setSpeed(speed)
+                showSpeedDialog = false
+            },
+            onDismiss = { showSpeedDialog = false },
+        )
     }
 
     if (showSleepDialog) {
@@ -134,6 +146,19 @@ fun PlayerScreen(
                                 tint = if (liked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                             )
                         }
+                    }
+                    TextButton(
+                        onClick = { showSpeedDialog = true },
+                        modifier = Modifier.testTag("speed_button"),
+                    ) {
+                        Text(
+                            text = speedLabel(state.speed),
+                            color = if (state.speed != 1f) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
+                        )
                     }
                     IconButton(
                         onClick = { showSleepDialog = true },
@@ -409,6 +434,41 @@ private fun SleepTimerDialog(
                 ) { Text("Turn off timer") }
             }
         },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+    )
+}
+
+private val SPEEDS = listOf(0.75f, 1f, 1.25f, 1.5f, 2f)
+
+fun speedLabel(speed: Float): String =
+    (if (speed % 1f == 0f) speed.toInt().toString() else speed.toString().trimEnd('0')) + "x"
+
+@Composable
+private fun SpeedDialog(
+    current: Float,
+    onPick: (Float) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Playback speed") },
+        text = {
+            Column {
+                SPEEDS.forEach { speed ->
+                    Text(
+                        text = speedLabel(speed),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (speed == current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onPick(speed) }
+                            .padding(vertical = 12.dp)
+                            .testTag("speed_option_${speedLabel(speed)}"),
+                    )
+                }
+            }
+        },
+        confirmButton = {},
         dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } },
     )
 }

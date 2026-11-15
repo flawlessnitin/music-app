@@ -41,6 +41,7 @@ data class PlayerState(
     val error: String? = null,
     /** Wall-clock time when the sleep timer pauses playback, or null when no timer runs. */
     val sleepTimerEndsAtMillis: Long? = null,
+    val speed: Float = 1f,
 )
 
 /**
@@ -90,6 +91,8 @@ class PlayerConnection(
         p.setMediaItems(songs.map(toMediaItem), index.coerceIn(0, songs.lastIndex), positionMs.coerceAtLeast(0L))
         p.prepare()
     }
+
+    override fun setSpeed(speed: Float) = withPlayer { it.setPlaybackSpeed(speed.coerceIn(0.5f, 2f)) }
 
     override fun setSleepTimer(minutes: Int?) = setSleepTimerMillis(minutes?.let { it * 60_000L })
 
@@ -196,6 +199,7 @@ class PlayerConnection(
                 positionMs = p.currentPosition.coerceAtLeast(0),
                 durationMs = p.duration.takeIf { d -> d != C.TIME_UNSET }?.coerceAtLeast(0) ?: 0,
                 shuffle = p.shuffleModeEnabled,
+                speed = p.playbackParameters.speed,
                 repeat = when (p.repeatMode) {
                     Player.REPEAT_MODE_ALL -> RepeatMode.ALL
                     Player.REPEAT_MODE_ONE -> RepeatMode.ONE

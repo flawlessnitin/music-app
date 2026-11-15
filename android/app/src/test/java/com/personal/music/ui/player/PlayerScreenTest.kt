@@ -292,4 +292,23 @@ class PlayerScreenTest {
 
         assertEquals(listOf<Int?>(null), player.sleepTimerCalls)
     }
+
+    @Test
+    fun `picking a playback speed sets it`() {
+        player.updateState { it.copy(current = song, queue = listOf(song)) }
+        composeTestRule.setContent { PlayerScreen(player = player, onBack = {}) }
+
+        composeTestRule.onNodeWithTag("speed_button").performClick()
+        composeTestRule.onNodeWithTag("speed_option_1.5x").performClick()
+
+        assertEquals(listOf(1.5f), player.speedCalls)
+    }
+
+    @Test
+    fun `the speed button shows the current speed`() {
+        player.updateState { it.copy(current = song, queue = listOf(song), speed = 1.25f) }
+        composeTestRule.setContent { PlayerScreen(player = player, onBack = {}) }
+
+        composeTestRule.onNodeWithText("1.25x").assertIsDisplayed()
+    }
 }

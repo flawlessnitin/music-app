@@ -35,6 +35,7 @@ import java.io.IOException
 @OptIn(UnstableApi::class)
 class PlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
+    private var soundEffects: SoundEffects? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     override fun onCreate() {
@@ -61,6 +62,14 @@ class PlaybackService : MediaSessionService() {
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
+
+        val effects = SoundEffects()
+        soundEffects = effects
+        effects.onAudioSession(player.audioSessionId)
+        player.addListener(object : Player.Listener {
+            override fun onAudioSessionIdChanged(audioSessionId: Int) = effects.onAudioSession(audioSessionId)
+        })
+        scope.launch { container.settings.eqPreset.collect { effects.setPreset(it) } }
 
         // A failed stream may mean the download token expired; drop it so the next try gets a new one.
         player.addListener(SkipOnError(player) { container.b2.invalidate() })
@@ -94,6 +103,8 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        soundEffects?.release()
+        soundEffects = null
         session?.run {
             player.release()
             release()

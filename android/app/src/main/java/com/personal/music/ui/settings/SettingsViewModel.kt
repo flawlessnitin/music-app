@@ -6,6 +6,7 @@ import com.personal.music.b2.B2Client
 import com.personal.music.b2.B2Exception
 import com.personal.music.catalog.CatalogParser
 import com.personal.music.library.LibraryRepository
+import com.personal.music.playback.EqPreset
 import com.personal.music.settings.Credentials
 import com.personal.music.settings.SettingsStore
 import com.personal.music.settings.SyncOutcome
@@ -32,6 +33,7 @@ data class SettingsUi(
     val lastSyncFinishedAtMillis: Long? = null,
     val testMessage: String? = null,
     val isTesting: Boolean = false,
+    val eqPreset: EqPreset = EqPreset.OFF,
     val localSongs: Int = 0,
     val localMessage: String? = null,
     val isScanningLocal: Boolean = false,
@@ -69,18 +71,28 @@ class SettingsViewModel(
         val message: String? = null,
     )
 
+    private class Prefs(
+        val credentials: Credentials?,
+        val wifiOnly: Boolean,
+        val capBytes: Long,
+        val eqPreset: EqPreset,
+    )
+
     private val testState = MutableStateFlow(TestState())
     private val scanState = MutableStateFlow<Pair<Boolean, String?>>(false to null)
 
     val ui: StateFlow<SettingsUi> = combine(
-        combine(settings.credentialsFlow, settings.wifiOnly, settings.capBytes) { creds, wifi, cap ->
-            Triple(creds, wifi, cap)
+        combine(settings.credentialsFlow, settings.wifiOnly, settings.capBytes, settings.eqPreset) { creds, wifi, cap, eq ->
+            Prefs(creds, wifi, cap, eq)
         },
         settings.lastSync,
         library.songs(),
         testState,
         scanState,
-    ) { (creds, wifi, cap), lastSync, songs, test, scan ->
+    ) { prefs, lastSync, songs, test, scan ->
+        val creds = prefs.credentials
+        val wifi = prefs.wifiOnly
+        val cap = prefs.capBytes
         val capGb = (cap / 1_000_000_000L).toInt().coerceIn(1, 40)
         val synced = songs.filter { !it.local }
         val downloaded = synced.count { it.downloaded }
@@ -101,6 +113,7 @@ class SettingsViewModel(
             lastSyncFinishedAtMillis = lastSync?.finishedAtMillis,
             testMessage = test.message,
             isTesting = test.isTesting,
+            eqPreset = prefs.eqPreset,
             localSongs = songs.count { it.local },
             localMessage = scan.second,
             isScanningLocal = scan.first,
@@ -163,6 +176,10 @@ class SettingsViewModel(
 
     fun setWifiOnly(v: Boolean): Job = scope.launch {
         settings.setWifiOnly(v)
+    }
+
+    fun setEqPreset(preset: EqPreset): Job = scope.launch {
+        settings.setEqPreset(preset)
     }
 
     fun setCapGb(gb: Int): Job = scope.launch {

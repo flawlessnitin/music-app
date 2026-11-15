@@ -22,4 +22,5 @@ interface PlayerControls {
     fun playShuffled(songs: List<SongEntity>)
     /** Pauses playback after [minutes]; null cancels the timer. */
     fun setSleepTimer(minutes: Int?)
+    fun setSpeed(speed: Float)
 }

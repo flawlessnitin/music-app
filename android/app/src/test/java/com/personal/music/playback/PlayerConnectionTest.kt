@@ -318,4 +318,27 @@ class PlayerConnectionTest {
         assertTrue(player.playWhenReady)
         assertNull(timed.state.value.sleepTimerEndsAtMillis)
     }
+
+    @Test
+    fun `setSpeed changes the playback speed and shows in state`() {
+        connection.play(listOf(a, b), 0)
+        settle()
+
+        connection.setSpeed(1.5f)
+        settle()
+
+        assertEquals(1.5f, player.playbackParameters.speed, 0.001f)
+        assertEquals(1.5f, connection.state.value.speed, 0.001f)
+    }
+
+    @Test
+    fun `speed is kept within a sensible range`() {
+        connection.play(listOf(a, b), 0)
+        settle()
+
+        connection.setSpeed(10f)
+        settle()
+
+        assertEquals(2f, connection.state.value.speed, 0.001f)
+    }
 }

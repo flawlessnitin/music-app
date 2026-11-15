@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.personal.music.playback.EqPreset
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -210,6 +211,12 @@ class SettingsStore(
         }
     }
 
+    val eqPreset: Flow<EqPreset> = dataStore.data.map { prefs -> EqPreset.fromName(prefs[KEY_EQ_PRESET]) }
+
+    suspend fun setEqPreset(preset: EqPreset) {
+        dataStore.edit { prefs -> prefs[KEY_EQ_PRESET] = preset.name }
+    }
+
     suspend fun session(): SavedSession? {
         val prefs = dataStore.data.first()
         val ids = prefs[KEY_SESSION_IDS]?.split(SESSION_SEPARATOR)?.filter { it.isNotBlank() }.orEmpty()
@@ -233,6 +240,7 @@ class SettingsStore(
 
     companion object {
         private const val SESSION_SEPARATOR = "\n"
+        val KEY_EQ_PRESET = stringPreferencesKey("eq_preset")
         val KEY_SESSION_IDS =stringPreferencesKey("session_song_ids")
         val KEY_SESSION_INDEX = intPreferencesKey("session_index")
         val KEY_SESSION_POSITION = longPreferencesKey("session_position_ms")

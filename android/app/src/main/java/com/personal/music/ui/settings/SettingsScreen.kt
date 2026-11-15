@@ -16,6 +16,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.horizontalScroll
+import com.personal.music.playback.EqPreset
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -238,6 +241,26 @@ fun SettingsScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.testTag("last_sync_text"),
         )
+
+        HorizontalDivider()
+
+        Text(
+            text = "Sound",
+            style = MaterialTheme.typography.titleLarge,
+        )
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            EqPreset.entries.forEach { preset ->
+                FilterChip(
+                    selected = ui.eqPreset == preset,
+                    onClick = { viewModel.setEqPreset(preset) },
+                    label = { Text(preset.label) },
+                    modifier = Modifier.testTag("eq_${preset.name}"),
+                )
+            }
+        }
 
         HorizontalDivider()
 
