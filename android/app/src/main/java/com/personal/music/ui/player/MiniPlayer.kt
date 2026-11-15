@@ -50,9 +50,12 @@ fun MiniPlayer(
         Surface(
             modifier = modifier
                 .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+                .clip(RoundedCornerShape(10.dp))
                 .clickable(onClick = onOpenPlayer)
                 .testTag("mini_player"),
-            tonalElevation = 3.dp,
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = RoundedCornerShape(10.dp),
         ) {
             Row(
                 modifier = Modifier
@@ -64,7 +67,7 @@ fun MiniPlayer(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                        .background(MaterialTheme.colorScheme.surfaceContainer),
                     contentAlignment = Alignment.Center,
                 ) {
                     if (!current.artworkUri.isNullOrBlank()) {

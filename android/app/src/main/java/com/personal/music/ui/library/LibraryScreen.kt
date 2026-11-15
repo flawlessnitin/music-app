@@ -30,11 +30,14 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -49,6 +52,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.personal.music.db.Album
@@ -108,8 +112,14 @@ fun LibraryScreen(
                 .fillMaxSize()
                 .padding(innerPadding),
         ) {
+            Text(
+                text = "Your Library",
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.padding(start = 16.dp, top = 20.dp, end = 16.dp),
+            )
+
             // Search field
-            OutlinedTextField(
+            TextField(
                 value = query,
                 onValueChange = { viewModel.setQuery(it) },
                 modifier = Modifier
@@ -134,25 +144,36 @@ fun LibraryScreen(
                     }
                 },
                 singleLine = true,
+                shape = RoundedCornerShape(28.dp),
+                colors = TextFieldDefaults.colors(
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    disabledIndicatorColor = Color.Transparent,
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                ),
             )
 
-            // Tabs
-            TabRow(selectedTabIndex = selectedTab.ordinal) {
-                Tab(
-                    selected = selectedTab == LibraryTab.Songs,
-                    onClick = { selectedTab = LibraryTab.Songs },
-                    text = { Text("Songs") },
-                )
-                Tab(
-                    selected = selectedTab == LibraryTab.Albums,
-                    onClick = { selectedTab = LibraryTab.Albums },
-                    text = { Text("Albums") },
-                )
-                Tab(
-                    selected = selectedTab == LibraryTab.Artists,
-                    onClick = { selectedTab = LibraryTab.Artists },
-                    text = { Text("Artists") },
-                )
+            // Tabs, as pills
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                LibraryTab.entries.forEach { tab ->
+                    FilterChip(
+                        selected = selectedTab == tab,
+                        onClick = { selectedTab = tab },
+                        label = { Text(tab.name, fontWeight = FontWeight.SemiBold) },
+                        shape = RoundedCornerShape(50),
+                        border = null,
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            labelColor = MaterialTheme.colorScheme.onSurface,
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = Color.Black,
+                        ),
+                    )
+                }
             }
 
             // Tab Content
