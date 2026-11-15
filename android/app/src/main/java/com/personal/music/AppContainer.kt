@@ -6,6 +6,12 @@ import android.net.NetworkCapabilities
 import androidx.room.Room
 import com.personal.music.b2.B2Client
 import com.personal.music.db.MusicDatabase
+import com.personal.music.db.SongEntity
+import com.personal.music.playback.MediaItems
+import com.personal.music.playback.PlayerConnection
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import com.personal.music.library.LibraryRepository
 import com.personal.music.settings.SettingsStore
 import com.personal.music.sync.Downloader
@@ -50,6 +56,29 @@ class AppContainer(context: Context) {
         network = network,
         freeSpace = FreeSpace { appContext.filesDir.usableSpace },
     )
+
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    /** The song's file on the phone, or null if it is not downloaded. */
+    fun localFile(song: SongEntity): File? =
+        downloader.localFile(song).takeIf { song.downloaded && it.isFile }
+
+    /** The song's cover image on the phone, or null if there is none yet. */
+    fun coverFile(song: SongEntity): File? =
+        song.cover?.let { downloader.coverFile(it) }?.takeIf { it.isFile }
+
+    val player = PlayerConnection(appScope) { song ->
+        MediaItems.from(song, localFile(song), coverFile(song))
+    }
+
+    private var playerConnected = false
+
+    /** Connects [player] to the playback service; called when the app's screen opens. */
+    fun ensurePlayerConnected() {
+        if (playerConnected) return
+        playerConnected = true
+        PlayerConnection.connect(appContext, player)
+    }
 }
 
 private class AndroidNetworkState(context: Context) : NetworkState {
