@@ -3,6 +3,7 @@ package com.personal.music.ui.player
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -47,6 +48,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -54,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
@@ -211,28 +214,47 @@ fun PlayerScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceEvenly,
             ) {
-                // Large Cover
-                Box(
+                // Large Cover: shown in its own shape (16:9, square, tall...), as big as fits on the screen.
+                var coverRatio by remember(current.artworkUri) { mutableFloatStateOf(1f) }
+                BoxWithConstraints(
                     modifier = Modifier
-                        .fillMaxWidth(0.85f)
-                        .aspectRatio(1f)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.MusicNote,
-                        contentDescription = null,
-                        modifier = Modifier.size(72.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    val (coverWidth, coverHeight) = fitCover(
+                        aspect = coverRatio,
+                        maxWidth = maxWidth.value * 0.85f,
+                        maxHeight = maxHeight.value,
                     )
-                    if (!current.artworkUri.isNullOrBlank()) {
-                        AsyncImage(
-                            model = current.artworkUri,
+                    Box(
+                        modifier = Modifier
+                            .size(coverWidth.dp, coverHeight.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MusicNote,
                             contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.size(72.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        if (!current.artworkUri.isNullOrBlank()) {
+                            AsyncImage(
+                                model = current.artworkUri,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit,
+                                onSuccess = { state ->
+                                    val size = state.painter.intrinsicSize
+                                    if (size.isSpecified && size.width > 0f && size.height > 0f) {
+                                        coverRatio = size.width / size.height
+                                    }
+                                },
+                            )
+                        }
                     }
                 }
 
@@ -471,4 +493,14 @@ private fun SpeedDialog(
         confirmButton = {},
         dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } },
     )
+}
+
+/**
+ * Size, in the same unit as the limits, of a cover with the given width-to-height [aspect] that fills as much
+ * of [maxWidth] x [maxHeight] as it can without being cut or stretched. A nonsense ratio counts as square.
+ */
+fun fitCover(aspect: Float, maxWidth: Float, maxHeight: Float): Pair<Float, Float> {
+    val ratio = if (aspect.isFinite() && aspect > 0f) aspect else 1f
+    val width = minOf(maxWidth, maxHeight * ratio)
+    return width to width / ratio
 }
