@@ -3,8 +3,6 @@ package com.personal.music.ui.library
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import com.personal.music.catalog.RemoteCatalog
-import com.personal.music.catalog.RemoteSong
 import com.personal.music.db.MusicDatabase
 import com.personal.music.db.SongEntity
 import com.personal.music.library.LibraryRepository
@@ -28,7 +26,7 @@ class LibraryViewModelTest {
     private lateinit var repository: LibraryRepository
     private lateinit var player: FakePlayerControls
 
-    private fun sampleSong(id: String, title: String, artist: String = "Artist", album: String = "Album") = RemoteSong(
+    private fun sampleSong(id: String, title: String, artist: String = "Artist", album: String = "Album") = SongEntity(
         id = id,
         title = title,
         artist = artist,
@@ -61,15 +59,12 @@ class LibraryViewModelTest {
 
     @Test
     fun `songs follow the search query`() = runTest {
-        val catalog = RemoteCatalog(
-            version = 1,
-            updatedAt = "2026-11-15T10:00:00Z",
-            songs = listOf(
+        repository.replaceSongs(
+            listOf(
                 sampleSong("1", "Yellow Submarine", "The Beatles"),
                 sampleSong("2", "Paint It Black", "The Rolling Stones"),
             ),
         )
-        repository.applyCatalog(catalog)
 
         val viewModel = LibraryViewModel(repository, player, coroutineScope = backgroundScope)
 

@@ -23,7 +23,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Album
-import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MusicNote
@@ -196,7 +195,7 @@ fun LibraryScreen(
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                text = "No songs yet. Add your B2 key in Settings, then sync.",
+                                text = "No songs yet. Send music from your PC with: musictool add <folder>",
                                 style = MaterialTheme.typography.bodyLarge,
                                 textAlign = TextAlign.Center,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -421,17 +420,6 @@ fun SongRow(
                             .size(14.dp)
                             .testTag("liked_mark"),
                         tint = MaterialTheme.colorScheme.primary,
-                    )
-                }
-                if (!song.downloaded) {
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Icon(
-                        imageVector = Icons.Default.ArrowDownward,
-                        contentDescription = "Not downloaded",
-                        modifier = Modifier
-                            .size(16.dp)
-                            .testTag("download_mark"),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }

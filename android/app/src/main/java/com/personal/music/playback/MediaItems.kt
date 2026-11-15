@@ -8,14 +8,9 @@ import java.io.File
 
 /** Turns a song from the library into something the player can queue. */
 object MediaItems {
-    const val B2_SCHEME = "b2"
-
-    /**
-     * [localFile] is the song's file on the phone, or null when it is not downloaded; the
-     * item then gets a `b2://<path in bucket>` address that is resolved when playback opens it.
-     */
+    /** [localFile] defaults to where the song says it is; [coverFile] is its cover image, if it has one. */
     fun from(song: SongEntity, localFile: File?, coverFile: File?): MediaItem {
-        val uri = if (localFile != null) Uri.fromFile(localFile) else Uri.parse("$B2_SCHEME://${song.file}")
+        val uri = Uri.fromFile(localFile ?: File(song.file))
         val metadata = MediaMetadata.Builder()
             .setTitle(song.title)
             .setArtist(song.artist)
@@ -29,9 +24,4 @@ object MediaItems {
             .setMediaMetadata(metadata)
             .build()
     }
-
-    fun isRemote(item: MediaItem?): Boolean = item?.localConfiguration?.uri?.scheme == B2_SCHEME
-
-    /** The bucket path inside a `b2://` address, for example `songs/abc.opus`. */
-    fun bucketPath(uri: Uri): String = uri.toString().removePrefix("$B2_SCHEME://")
 }

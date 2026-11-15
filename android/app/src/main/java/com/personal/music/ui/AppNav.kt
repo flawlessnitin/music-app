@@ -19,10 +19,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,7 +28,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -42,12 +39,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.personal.music.AppContainer
-import com.personal.music.b2.B2Client
 import com.personal.music.db.SongEntity
 import com.personal.music.library.LibraryRepository
 import com.personal.music.playback.PlayerControls
 import com.personal.music.settings.SettingsStore
-import com.personal.music.sync.SyncScheduler
 import com.personal.music.ui.library.AlbumScreen
 import com.personal.music.ui.library.ArtistScreen
 import com.personal.music.ui.library.LibraryScreen
@@ -76,14 +71,12 @@ class LibraryViewModelFactory(
 class SettingsViewModelFactory(
     private val settings: SettingsStore,
     private val library: LibraryRepository,
-    private val b2: B2Client,
-    private val onSyncNow: () -> Unit,
-    private val onScanLocal: (suspend () -> Int)? = null,
+    private val onScanMusic: suspend () -> Int,
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
-            return SettingsViewModel(settings, library, b2, onSyncNow, onScanLocal = onScanLocal) as T
+            return SettingsViewModel(settings, library, onScanMusic) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }
@@ -172,7 +165,6 @@ fun AppNav(
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController(),
 ) {
-    val context = LocalContext.current
     val libraryViewModel: LibraryViewModel = viewModel(
         factory = LibraryViewModelFactory(container.library, container.player),
     )
@@ -181,9 +173,7 @@ fun AppNav(
             SettingsViewModelFactory(
                 settings = container.settings,
                 library = container.library,
-                b2 = container.b2,
-                onSyncNow = { SyncScheduler.syncNow(context) },
-                onScanLocal = { container.scanLocalMusic() },
+                onScanMusic = { container.scanMusic() },
             )
         },
     )
@@ -194,17 +184,6 @@ fun AppNav(
     val recentSongs by remember(container) { container.listening.recentSongs() }.collectAsState(initial = emptyList())
     val listeningScope = rememberCoroutineScope()
     val toggleLike: (String) -> Unit = { id -> listeningScope.launch { container.listening.toggleLiked(id) } }
-
-    LaunchedEffect(Unit) {
-        // Only send a brand new user to Settings; someone with songs on the phone wants the library.
-        val noSongs = container.library.songs().first().isEmpty()
-        if (container.settings.credentials() == null && noSongs) {
-            navController.navigate("settings") {
-                popUpTo("library") { inclusive = false }
-                launchSingleTop = true
-            }
-        }
-    }
 
     NavHost(
         navController = navController,
@@ -224,7 +203,7 @@ fun AppNav(
                 onOpenPlayer = {
                     navController.navigate("player")
                 },
-                coverFile = { song -> song.cover?.let { container.downloader.coverFile(it) } },
+                coverFile = { song -> song.cover?.let { container.coverFile(it) } },
                 onAddToPlaylist = { song -> songToAddToPlaylist = song },
                 likedIds = likedIds,
                 likedSongs = likedSongs,
@@ -254,7 +233,7 @@ fun AppNav(
                 repository = container.library,
                 player = container.player,
                 onBack = { navController.popBackStack() },
-                coverFile = { song -> song.cover?.let { container.downloader.coverFile(it) } },
+                coverFile = { song -> song.cover?.let { container.coverFile(it) } },
                 onAddToPlaylist = { song -> songToAddToPlaylist = song },
             )
         }
@@ -271,7 +250,7 @@ fun AppNav(
                 repository = container.library,
                 player = container.player,
                 onBack = { navController.popBackStack() },
-                coverFile = { song -> song.cover?.let { container.downloader.coverFile(it) } },
+                coverFile = { song -> song.cover?.let { container.coverFile(it) } },
                 onAddToPlaylist = { song -> songToAddToPlaylist = song },
             )
         }
@@ -296,7 +275,7 @@ fun AppNav(
                         MiniPlayer(
                             player = container.player,
                             onOpenPlayer = { navController.navigate("player") },
-                            coverFile = { cover -> container.downloader.coverFile(cover) },
+                            coverFile = { cover -> container.coverFile(cover) },
                         )
                         AppBottomBar(
                             navController = navController,
@@ -319,7 +298,7 @@ fun AppNav(
                 repository = container.playlists,
                 player = container.player,
                 onBack = { navController.popBackStack() },
-                coverFile = { song -> song.cover?.let { container.downloader.coverFile(it) } },
+                coverFile = { song -> song.cover?.let { container.coverFile(it) } },
             )
         }
 
@@ -341,7 +320,7 @@ fun AppNav(
                 SettingsScreen(
                     viewModel = settingsViewModel,
                     modifier = Modifier.padding(padding),
-                    localMusicPath = container.localMusicDir.path,
+                    musicPath = container.musicDir.path,
                 )
             }
         }

@@ -21,9 +21,10 @@ data class SongEntity(
     val format: String,
     val file: String,
     val cover: String?,
-    val downloaded: Boolean = false,
-    /** Put on the phone by hand rather than synced from the bucket; never uploaded or deleted by sync. */
-    @ColumnInfo(defaultValue = "0") val local: Boolean = false
+    // Both are always true now: every song is a file on the phone. The columns stay so the database
+    // does not need another upgrade.
+    val downloaded: Boolean = true,
+    @ColumnInfo(defaultValue = "0") val local: Boolean = true
 )
 
 @Entity(tableName = "meta")

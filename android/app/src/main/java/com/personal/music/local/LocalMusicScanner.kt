@@ -23,8 +23,8 @@ fun interface TagReader {
 }
 
 /**
- * Finds songs that were put on the phone by hand (not synced from the bucket) in [dir].
- * Those songs stay on the phone only; they are never uploaded.
+ * Finds the songs in [dir]: the folder musictool sends music to, or where songs were copied by hand.
+ * They stay on the phone; nothing is ever uploaded.
  */
 class LocalMusicScanner(
     private val dir: File,

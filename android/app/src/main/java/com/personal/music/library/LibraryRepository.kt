@@ -1,8 +1,6 @@
 package com.personal.music.library
 
 import androidx.room.withTransaction
-import com.personal.music.catalog.RemoteCatalog
-import com.personal.music.db.MetaEntity
 import com.personal.music.db.MusicDatabase
 import com.personal.music.db.SongEntity
 import kotlinx.coroutines.flow.Flow
@@ -13,59 +11,16 @@ typealias Artist = com.personal.music.db.Artist
 class LibraryRepository(private val db: MusicDatabase) {
 
     private val songDao = db.songDao()
-    private val metaDao = db.metaDao()
 
-    suspend fun applyCatalog(catalog: RemoteCatalog): List<SongEntity> = db.withTransaction {
-        val existingSongs = songDao.getAllSongsList()
-        val existingMap = existingSongs.associateBy { it.id }
-        val newIds = catalog.songs.map { it.id }.toSet()
-
-        // Songs put on the phone by hand are not in the catalog and must survive it.
-        val toDelete = existingSongs.filter { it.id !in newIds && !it.local }
-        if (toDelete.isNotEmpty()) {
-            songDao.delete(toDelete)
-        }
-
-        val toUpsert = catalog.songs.distinctBy { it.id }.map { remote ->
-            val existing = existingMap[remote.id]
-            SongEntity(
-                id = remote.id,
-                title = remote.title,
-                artist = remote.artist,
-                album = remote.album,
-                albumArtist = remote.albumArtist,
-                track = remote.track,
-                disc = remote.disc,
-                year = remote.year,
-                durationMs = remote.durationMs,
-                sizeBytes = remote.sizeBytes,
-                format = remote.format,
-                file = remote.file,
-                cover = remote.cover,
-                // A song re-added in another format keeps its id but points at a new file,
-                // so the copy on the phone no longer counts.
-                downloaded = existing != null && existing.downloaded && existing.file == remote.file
-            )
-        }
-        if (toUpsert.isNotEmpty()) {
-            songDao.insertOrUpdate(toUpsert)
-        }
-
-        metaDao.setCatalogVersion(MetaEntity(id = 1, catalogVersion = catalog.version))
-
-        toDelete
-    }
-
-    /** Makes the by-hand songs in the library match [found]; synced songs are left alone. */
-    suspend fun replaceLocalSongs(found: List<SongEntity>) = db.withTransaction {
+    /**
+     * Makes the library match [found], the songs that are on the phone right now.
+     * Songs that are gone from the phone leave the library (and the playlists, likes and history that held them).
+     */
+    suspend fun replaceSongs(found: List<SongEntity>) = db.withTransaction {
         val keep = found.map { it.id }.toSet()
-        val gone = songDao.getLocalSongsList().filter { it.id !in keep }
+        val gone = songDao.getAllSongsList().filter { it.id !in keep }
         if (gone.isNotEmpty()) songDao.delete(gone)
         if (found.isNotEmpty()) songDao.insertOrUpdate(found)
-    }
-
-    suspend fun catalogVersion(): Int {
-        return metaDao.getCatalogVersion() ?: 0
     }
 
     fun songs(): Flow<List<SongEntity>> {
@@ -99,17 +54,5 @@ class LibraryRepository(private val db: MusicDatabase) {
 
     suspend fun song(id: String): SongEntity? {
         return songDao.getSong(id)
-    }
-
-    suspend fun setDownloaded(id: String, downloaded: Boolean) {
-        songDao.setDownloaded(id, downloaded)
-    }
-
-    suspend fun pending(): List<SongEntity> {
-        return songDao.getPendingSongs()
-    }
-
-    suspend fun downloadedBytes(): Long {
-        return songDao.getDownloadedBytes()
     }
 }

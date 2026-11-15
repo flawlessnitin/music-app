@@ -26,18 +26,6 @@ interface SongDao {
     @Query("SELECT * FROM songs ORDER BY title COLLATE NOCASE ASC")
     fun getAllSongsFlow(): Flow<List<SongEntity>>
 
-    @Query("SELECT * FROM songs WHERE local = 1")
-    suspend fun getLocalSongsList(): List<SongEntity>
-
-    @Query("SELECT * FROM songs WHERE downloaded = 0 ORDER BY title COLLATE NOCASE ASC")
-    suspend fun getPendingSongs(): List<SongEntity>
-
-    @Query("SELECT COALESCE(SUM(sizeBytes), 0) FROM songs WHERE downloaded = 1")
-    suspend fun getDownloadedBytes(): Long
-
-    @Query("UPDATE songs SET downloaded = :downloaded WHERE id = :id")
-    suspend fun setDownloaded(id: String, downloaded: Boolean)
-
     @Query("""
         SELECT albumArtist, album, MAX(cover) AS cover, MIN(year) AS year, COUNT(*) AS songCount 
         FROM songs 

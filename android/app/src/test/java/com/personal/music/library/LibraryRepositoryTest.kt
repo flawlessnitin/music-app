@@ -3,9 +3,8 @@ package com.personal.music.library
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import com.personal.music.catalog.RemoteCatalog
-import com.personal.music.catalog.RemoteSong
 import com.personal.music.db.MusicDatabase
+import com.personal.music.db.SongEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -52,7 +51,7 @@ class LibraryRepositoryTest {
         format: String = "opus",
         file: String = "songs/$id.opus",
         cover: String? = "covers/$id.jpg"
-    ) = RemoteSong(
+    ) = SongEntity(
         id = id,
         title = title,
         artist = artist,
@@ -69,107 +68,6 @@ class LibraryRepositoryTest {
     )
 
     @Test
-    fun `applyCatalog inserts songs and stores the version`() = runTest {
-        val catalog = RemoteCatalog(
-            version = 42,
-            updatedAt = "2026-11-15T10:00:00Z",
-            songs = listOf(
-                sampleSong(id = "1", title = "Song One"),
-                sampleSong(id = "2", title = "Song Two")
-            )
-        )
-
-        val deleted = repository.applyCatalog(catalog)
-        assertTrue(deleted.isEmpty())
-        assertEquals(42, repository.catalogVersion())
-
-        val songs = repository.songs().first()
-        assertEquals(2, songs.size)
-        assertEquals("Song One", songs[0].title)
-        assertEquals("Song Two", songs[1].title)
-        assertEquals(false, songs[0].downloaded)
-        assertEquals(false, songs[1].downloaded)
-    }
-
-    @Test
-    fun `applyCatalog keeps the downloaded flag when metadata changes`() = runTest {
-        val catalogV1 = RemoteCatalog(
-            version = 1,
-            updatedAt = "2026-11-15T10:00:00Z",
-            songs = listOf(sampleSong(id = "1", title = "Original Title"))
-        )
-        repository.applyCatalog(catalogV1)
-        repository.setDownloaded("1", true)
-
-        val before = repository.song("1")
-        assertNotNull(before)
-        assertTrue(before!!.downloaded)
-
-        val catalogV2 = RemoteCatalog(
-            version = 2,
-            updatedAt = "2026-11-15T11:00:00Z",
-            songs = listOf(sampleSong(id = "1", title = "Updated Title", sizeBytes = 8000000L))
-        )
-        val deleted = repository.applyCatalog(catalogV2)
-        assertTrue(deleted.isEmpty())
-
-        val after = repository.song("1")
-        assertNotNull(after)
-        assertEquals("Updated Title", after!!.title)
-        assertEquals(8000000L, after.sizeBytes)
-        assertTrue(after.downloaded)
-    }
-
-    @Test
-    fun `applyCatalog clears the downloaded flag when the song points at a new file`() = runTest {
-        repository.applyCatalog(RemoteCatalog(1, "", listOf(sampleSong(id = "1"))))
-        repository.setDownloaded("1", true)
-
-        repository.applyCatalog(
-            RemoteCatalog(2, "", listOf(sampleSong(id = "1", format = "flac", file = "songs/1.flac")))
-        )
-
-        val after = repository.song("1")!!
-        assertEquals("songs/1.flac", after.file)
-        assertEquals(false, after.downloaded)
-    }
-
-    @Test
-    fun `applyCatalog deletes songs missing from the new catalog and returns them`() = runTest {
-        val catalogV1 = RemoteCatalog(
-            version = 1,
-            updatedAt = "2026-11-15T10:00:00Z",
-            songs = listOf(
-                sampleSong(id = "1", title = "Song 1"),
-                sampleSong(id = "2", title = "Song 2"),
-                sampleSong(id = "3", title = "Song 3")
-            )
-        )
-        repository.applyCatalog(catalogV1)
-
-        val catalogV2 = RemoteCatalog(
-            version = 2,
-            updatedAt = "2026-11-15T12:00:00Z",
-            songs = listOf(sampleSong(id = "1", title = "Song 1"))
-        )
-        val deleted = repository.applyCatalog(catalogV2)
-
-        assertEquals(2, deleted.size)
-        val deletedIds = deleted.map { it.id }.toSet()
-        assertEquals(setOf("2", "3"), deletedIds)
-
-        assertNotNull(repository.song("1"))
-        assertNull(repository.song("2"))
-        assertNull(repository.song("3"))
-        assertEquals(1, repository.songs().first().size)
-    }
-
-    @Test
-    fun `catalogVersion is 0 before any sync`() = runTest {
-        assertEquals(0, repository.catalogVersion())
-    }
-
-    @Test
     fun `albums are grouped by albumArtist and album with a song count`() = runTest {
         val songs = listOf(
             sampleSong(id = "1", albumArtist = "Artist A", album = "Album 1", year = 2020, cover = "covers/1.jpg"),
@@ -177,7 +75,7 @@ class LibraryRepositoryTest {
             sampleSong(id = "3", albumArtist = "Artist A", album = "Album 2", year = 2021, cover = "covers/2.jpg"),
             sampleSong(id = "4", albumArtist = "Artist B", album = "Album 3", year = 2022, cover = null)
         )
-        repository.applyCatalog(RemoteCatalog(version = 1, updatedAt = "", songs = songs))
+        repository.replaceSongs(songs)
 
         val albums = repository.albums().first()
         assertEquals(3, albums.size)
@@ -215,7 +113,7 @@ class LibraryRepositoryTest {
             sampleSong(id = "s5", albumArtist = "Artist A", album = "Album 1", disc = null, track = 1),
             sampleSong(id = "s6", albumArtist = "Artist A", album = "Album 1", disc = 1, track = null)
         )
-        repository.applyCatalog(RemoteCatalog(version = 1, updatedAt = "", songs = songs))
+        repository.replaceSongs(songs)
 
         val albumSongs = repository.albumSongs("Artist A", "Album 1").first()
         val orderedIds = albumSongs.map { it.id }
@@ -229,7 +127,7 @@ class LibraryRepositoryTest {
             sampleSong(id = "2", title = "Fix You", artist = "Coldplay", album = "X&Y", albumArtist = "Coldplay"),
             sampleSong(id = "3", title = "Yellow", artist = "Coldplay", album = "Parachutes", albumArtist = "Coldplay")
         )
-        repository.applyCatalog(RemoteCatalog(version = 1, updatedAt = "", songs = songs))
+        repository.replaceSongs(songs)
 
         // Match Hindi title
         val hindiResults = repository.search("तुम").first()
@@ -259,7 +157,7 @@ class LibraryRepositoryTest {
             sampleSong(id = "2", title = "Song B"),
             sampleSong(id = "3", title = "Song C")
         )
-        repository.applyCatalog(RemoteCatalog(version = 1, updatedAt = "", songs = songs))
+        repository.replaceSongs(songs)
 
         val allSongs = repository.songs().first()
         assertEquals(3, allSongs.size)
@@ -271,26 +169,4 @@ class LibraryRepositoryTest {
         assertEquals(allSongs, whitespaceSearch)
     }
 
-    @Test
-    fun `pending lists only songs not downloaded and downloadedBytes sums the rest`() = runTest {
-        val songs = listOf(
-            sampleSong(id = "s1", sizeBytes = 1000L),
-            sampleSong(id = "s2", sizeBytes = 2500L),
-            sampleSong(id = "s3", sizeBytes = 4000L)
-        )
-        repository.applyCatalog(RemoteCatalog(version = 1, updatedAt = "", songs = songs))
-
-        val initialPending = repository.pending()
-        assertEquals(3, initialPending.size)
-        assertEquals(0L, repository.downloadedBytes())
-
-        repository.setDownloaded("s1", true)
-        repository.setDownloaded("s3", true)
-
-        val pendingAfter = repository.pending()
-        assertEquals(1, pendingAfter.size)
-        assertEquals("s2", pendingAfter[0].id)
-
-        assertEquals(5000L, repository.downloadedBytes())
-    }
 }

@@ -1,113 +1,78 @@
 # Personal Music App (Android)
 
-Offline-first Android music player built for the Samsung Galaxy M11 that mirrors a personal music library held in a private Backblaze B2 bucket onto the phone.
+A private music player for the Samsung Galaxy M11. Songs live on the phone only: you send them from the PC with `musictool` over a USB cable, and the app plays them. There is no cloud, no account and no internet (the app does not even have the permission).
 
-The app uses Jetpack Compose (Material 3), ExoPlayer / Media3 (`MediaSessionService`), Room database, WorkManager, and OkHttp. It requires no Google Play services or Firebase.
+It uses Jetpack Compose (Material 3), Media3 / ExoPlayer (`MediaSessionService`), Room and DataStore. No Google Play services or Firebase.
 
 ---
 
-## 1. Prerequisites & Building
+## 1. Building
 
 ### Requirements
 - **JDK 21** (e.g. Eclipse Temurin 21)
 - **Android SDK** with platform tools and `platforms;android-36` / `platforms;android-37` (compiled against API 37, targets API 36, minSdk 29)
-- `ANDROID_HOME` pointing to your Android SDK installation (or configured via `local.properties`)
+- `ANDROID_HOME` pointing to the SDK (or set in `local.properties`)
 
-### Build the Debug APK
+### Build the debug APK
 From the `android/` directory:
 
 ```powershell
 .\gradlew.bat assembleDebug --console=plain
 ```
 
-The APK will be generated at:
-```
-android/app/build/outputs/apk/debug/app-debug.apk
-```
+The APK is at `android/app/build/outputs/apk/debug/app-debug.apk`.
 
-### Run Tests
-To run unit and Robolectric tests:
-
+### Run the tests
 ```powershell
 .\gradlew.bat test --console=plain
 ```
 
 ---
 
-## 2. Installing on the Samsung Galaxy M11
+## 2. Installing on the phone
 
-### Step 1: Enable USB Debugging on the Phone
-1. Open the **Settings** app on the Galaxy M11.
-2. Scroll to the bottom and tap **About phone**.
-3. Tap **Software information**.
-4. Find **Build number** and tap it **7 times** in rapid succession until you see a prompt: *"Developer mode has been enabled"*.
-5. Go back to the main **Settings** menu and select **Developer options** (now at the bottom).
-6. Enable the **USB debugging** toggle switch and tap **OK**.
-
-### Step 2: Install via ADB
-1. Connect your Galaxy M11 to the PC using a USB cable.
-2. Unlock the phone screen. If prompted with *"Allow USB debugging?"*, check *"Always allow from this computer"* and tap **Allow**.
-3. In PowerShell, verify the device is detected:
+1. On the phone: **Settings > About phone > Software information**, tap **Build number** 7 times, then in **Developer options** turn on **USB debugging**.
+2. Plug the phone into the PC, unlock it, and allow "Allow USB debugging?".
+3. Check that it shows up, then install:
    ```powershell
    adb devices
-   ```
-   You should see your device ID with the state `device`.
-4. Install or reinstall the APK:
-   ```powershell
    adb install -r app/build/outputs/apk/debug/app-debug.apk
    ```
 
----
-
-## 3. Creating a Read-Only Backblaze B2 Application Key
-
-The Android app only ever **reads** and **streams** files from Backblaze B2. It never uploads, modifies, or deletes files in your bucket. For security, create a dedicated read-only application key limited strictly to your music bucket:
-
-1. Log in to the [Backblaze B2 Console](https://www.backblaze.com/b2/cloud-storage.html).
-2. Under the **Account** section in the left sidebar, click **Application Keys**.
-3. Scroll down and click **Add a New Application Key**.
-4. Configure the key:
-   - **Name of Key**: A memorable name, e.g. `galaxy-m11-music-reader`.
-   - **Allow access to Bucket(s)**: Select your private music bucket (do **not** select "All").
-   - **Type of Access**: Select **Read Only**.
-   - **File name prefix**: Leave blank (gives read access to `catalog.json`, `songs/`, and `covers/`).
-   - **Duration (seconds)**: Leave blank (no expiration).
-5. Click **Create New Key**.
-6. **Important:** Copy the **keyID** and **applicationKey** immediately. Backblaze displays the `applicationKey` **only once**; if lost, a new key must be generated.
+Open the app once so it can make its folder.
 
 ---
 
-## 4. Settings & Configuration
+## 3. Getting music onto the phone
 
-When launched for the first time without a saved key, the app automatically opens the **Settings** screen.
+From the PC, with the phone plugged in:
 
-### Backblaze B2 Storage
-- **Key ID:** The B2 application key ID created above.
-- **Application Key:** The secret application key string. This is masked (`••••••`) by default. Tap the eye icon to toggle visibility. The key is encrypted with an Android Keystore AES-GCM key and never stored in plain text.
-- **Bucket name:** The exact name of your Backblaze B2 bucket.
-- **Save and test:**
-  - Trims leading/trailing whitespace and validates that all three fields are non-empty.
-  - Encrypts and saves credentials to local storage.
-  - Invalidates any cached token and tests connectivity by fetching `catalog.json`.
-  - On success: reports `"Connected. N songs in your library."` and automatically kicks off an initial sync.
-  - On bad credentials: reports `"Backblaze rejected the key. Check the key ID, key and bucket name."` (credentials remain saved for editing; sync is not started).
-  - If catalog is missing: reports `"No catalog.json in the bucket yet. Add songs with musictool first."`.
-  - On connection loss: reports a clear network error.
-- **Clear key:** Deletes stored credentials and invalidates the B2 authorization cache.
+```bash
+musictool add "D:\Music\Some Album"
+```
 
-### Sync & Download
-- **Wi-Fi only:**
-  - On by default.
-  - When enabled, sync background jobs and streaming playback will not use cellular/metered data.
-  - When disabled, downloads and streaming can proceed over mobile data.
-- **Storage cap slider (1 to 40 GB):**
-  - Configures the maximum storage allowance on the phone (default: 20 GB).
-  - Changes are saved when the slider is released.
-  - The background sync stops downloading once the storage cap or available phone disk space is reached.
-- **Storage summary line:**
-  - Displays `"Used X GB of Y GB, N songs on phone, M waiting"` (used GB formatted with one decimal place).
-- **Sync now:**
-  - Enqueues an immediate one-time sync with WorkManager.
-  - Disabled until valid credentials are saved.
-- **Last sync:**
-  - Shows the date, time, and outcome of the last synchronization pass (e.g. `Last sync: 2026-11-15 18:30 - Up to date.`, `Downloaded. Everything is on your phone.`, or an error reason if failed).
+See `tools/musictool/README.md`. The songs go to
+
+```
+/sdcard/Android/data/com.personal.music/files/Music/Artist/Album/03 - Title.opus
+```
+
+and the app scans that folder every time it comes to the front. You can also copy files into that folder by hand (for example with a file manager) and tap **Settings > Scan for new songs**. Songs you delete from the folder leave the library the next time the app scans.
+
+The app reads title, artist, album, track and year from the file's tags. A `Folder.jpg` or `cover.jpg` next to the songs is used as the cover when the files have no art inside.
+
+---
+
+## 4. What the app does
+
+- **Library:** Songs, Albums, Artists, Liked and Recent tabs, search, and a **Shuffle play** button.
+- **Player:** play/pause, next/previous, seek, shuffle, repeat, a queue you can reorder, like (heart), playback speed, and a sleep timer. Lock screen, notification and headset controls come from the media session.
+- **Playlists:** make them, add songs, reorder.
+- **Resume:** the queue and position from last time come back when you open the app.
+- **Sound:** Off, Bass boost, Treble boost or Vocal (uses the phone's equalizer, when it has one).
+
+---
+
+## 5. Things not checked on a real device
+
+Gapless playback between songs, the equalizer sound, and the sleep timer pausing music with the screen off have only been tested in code, not by ear.

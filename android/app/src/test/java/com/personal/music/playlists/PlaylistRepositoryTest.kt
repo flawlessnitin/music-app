@@ -5,8 +5,6 @@ import android.database.sqlite.SQLiteDatabase
 import androidx.room.Room
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.test.core.app.ApplicationProvider
-import com.personal.music.catalog.RemoteCatalog
-import com.personal.music.catalog.RemoteSong
 import com.personal.music.db.MIGRATION_1_2
 import com.personal.music.db.MIGRATION_2_3
 import com.personal.music.db.MIGRATION_3_4
@@ -95,7 +93,7 @@ class PlaylistRepositoryTest {
         album: String = "Album $id",
         format: String = "opus",
         file: String = "songs/$id.$format",
-    ) = RemoteSong(
+    ) = SongEntity(
         id = id,
         title = title,
         artist = artist,
@@ -242,17 +240,11 @@ class PlaylistRepositoryTest {
     @Test
     fun `a song deleted by sync disappears from playlists`() = runTest {
         val libRepo = LibraryRepository(db)
-        libRepo.applyCatalog(
-            RemoteCatalog(
-                version = 1,
-                updatedAt = "",
-                songs = listOf(
+        libRepo.replaceSongs(listOf(
                     remoteSong("s1"),
                     remoteSong("s2"),
                     remoteSong("s3"),
-                ),
-            )
-        )
+                ))
         val playlistId = repository.create("Sync Cascade")
         repository.addSong(playlistId, "s1")
         repository.addSong(playlistId, "s2")
@@ -262,16 +254,10 @@ class PlaylistRepositoryTest {
         assertEquals(3, songs.size)
 
         // Sync arrives with catalog missing s2
-        libRepo.applyCatalog(
-            RemoteCatalog(
-                version = 2,
-                updatedAt = "",
-                songs = listOf(
+        libRepo.replaceSongs(listOf(
                     remoteSong("s1"),
                     remoteSong("s3"),
-                ),
-            )
-        )
+                ))
 
         songs = repository.songs(playlistId).first()
         assertEquals(listOf("s1", "s3"), songs.map { it.id })
@@ -283,13 +269,7 @@ class PlaylistRepositoryTest {
     @Test
     fun `deleting a playlist keeps the songs in the library`() = runTest {
         val libRepo = LibraryRepository(db)
-        libRepo.applyCatalog(
-            RemoteCatalog(
-                version = 1,
-                updatedAt = "",
-                songs = listOf(remoteSong("s1")),
-            )
-        )
+        libRepo.replaceSongs(listOf(remoteSong("s1")))
         val playlistId = repository.create("Temp Playlist")
         repository.addSong(playlistId, "s1")
 

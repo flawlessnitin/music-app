@@ -12,9 +12,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import com.personal.music.catalog.RemoteCatalog
-import com.personal.music.catalog.RemoteSong
 import com.personal.music.db.MusicDatabase
+import com.personal.music.db.SongEntity
 import com.personal.music.library.LibraryRepository
 import com.personal.music.playback.FakePlayerControls
 import com.personal.music.playback.QueueItem
@@ -45,7 +44,7 @@ class LibraryScreenTest {
         album: String = "Album $id",
         format: String = "opus",
         file: String = "songs/$id.$format",
-    ) = RemoteSong(
+    ) = SongEntity(
         id = id,
         title = title,
         artist = artist,
@@ -80,15 +79,9 @@ class LibraryScreenTest {
     @Test
     fun `shows song rows with title and artist`() {
         runBlocking {
-            repository.applyCatalog(
-                RemoteCatalog(
-                    version = 1,
-                    updatedAt = "",
-                    songs = listOf(
+            repository.replaceSongs(listOf(
                         remoteSong("1", title = "Bohemian Rhapsody", artist = "Queen", album = "A Night at the Opera"),
-                    ),
-                )
-            )
+                    ))
         }
 
         composeTestRule.setContent {
@@ -100,42 +93,12 @@ class LibraryScreenTest {
     }
 
     @Test
-    fun `a song not downloaded shows the download mark`() {
-        runBlocking {
-            repository.applyCatalog(
-                RemoteCatalog(
-                    version = 1,
-                    updatedAt = "",
-                    songs = listOf(
-                        remoteSong("1", title = "Song 1"),
-                        remoteSong("2", title = "Song 2"),
-                    ),
-                )
-            )
-            repository.setDownloaded("2", true)
-        }
-
-        composeTestRule.setContent {
-            LibraryScreen(viewModel = viewModel, player = player)
-        }
-
-        composeTestRule.onNodeWithTag("download_mark", useUnmergedTree = true).assertIsDisplayed()
-        composeTestRule.onAllNodesWithTag("download_mark", useUnmergedTree = true).assertCountEquals(1)
-    }
-
-    @Test
     fun `flac song shows the FLAC label`() {
         runBlocking {
-            repository.applyCatalog(
-                RemoteCatalog(
-                    version = 1,
-                    updatedAt = "",
-                    songs = listOf(
+            repository.replaceSongs(listOf(
                         remoteSong("1", title = "Flac Song", format = "flac"),
                         remoteSong("2", title = "Opus Song", format = "opus"),
-                    ),
-                )
-            )
+                    ))
         }
 
         composeTestRule.setContent {
@@ -151,22 +114,16 @@ class LibraryScreenTest {
             LibraryScreen(viewModel = viewModel, player = player)
         }
 
-        composeTestRule.onNodeWithText("No songs yet. Add your B2 key in Settings, then sync.").assertIsDisplayed()
+        composeTestRule.onNodeWithText("No songs yet. Send music from your PC with: musictool add <folder>").assertIsDisplayed()
     }
 
     @Test
     fun `typing in search filters the list`() {
         runBlocking {
-            repository.applyCatalog(
-                RemoteCatalog(
-                    version = 1,
-                    updatedAt = "",
-                    songs = listOf(
+            repository.replaceSongs(listOf(
                         remoteSong("1", title = "Karma Police", artist = "Radiohead"),
                         remoteSong("2", title = "No Surprises", artist = "Radiohead"),
-                    ),
-                )
-            )
+                    ))
         }
 
         composeTestRule.setContent {
@@ -185,16 +142,10 @@ class LibraryScreenTest {
     @Test
     fun `tapping a song starts playback from it`() {
         runBlocking {
-            repository.applyCatalog(
-                RemoteCatalog(
-                    version = 1,
-                    updatedAt = "",
-                    songs = listOf(
+            repository.replaceSongs(listOf(
                         remoteSong("1", title = "First Song"),
                         remoteSong("2", title = "Second Song"),
-                    ),
-                )
-            )
+                    ))
         }
 
         composeTestRule.setContent {
@@ -237,13 +188,7 @@ class LibraryScreenTest {
 
     private fun addSongs() {
         runBlocking {
-            repository.applyCatalog(
-                RemoteCatalog(
-                    version = 1,
-                    updatedAt = "",
-                    songs = listOf(remoteSong("1", title = "Alpha"), remoteSong("2", title = "Beta")),
-                )
-            )
+            repository.replaceSongs(listOf(remoteSong("1", title = "Alpha"), remoteSong("2", title = "Beta")))
         }
     }
 

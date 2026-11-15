@@ -1,106 +1,51 @@
 package com.personal.music.settings
 
 import android.content.Context
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.test.core.app.ApplicationProvider
+import com.personal.music.playback.EqPreset
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import java.util.Base64
+import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 class SettingsStoreTest {
 
-    private lateinit var context: Context
-    private lateinit var fakeCipher: SecretCipher
+    @get:Rule
+    val tmp = TemporaryFolder()
+
+    private lateinit var scope: CoroutineScope
+    private lateinit var dataStore: androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences>
     private lateinit var store: SettingsStore
 
-    private class XorSecretCipher(private val mask: Byte = 0x5A) : SecretCipher {
-        override fun encrypt(plainText: String): String {
-            val bytes = plainText.toByteArray(Charsets.UTF_8)
-            val xor = bytes.map { (it.toInt() xor mask.toInt()).toByte() }.toByteArray()
-            return Base64.getEncoder().encodeToString(xor)
-        }
-
-        override fun decrypt(cipherText: String): String {
-            val bytes = Base64.getDecoder().decode(cipherText)
-            val xor = bytes.map { (it.toInt() xor mask.toInt()).toByte() }.toByteArray()
-            return String(xor, Charsets.UTF_8)
-        }
-    }
-
     @Before
-    fun setUp() = runTest {
-        context = ApplicationProvider.getApplicationContext()
-        fakeCipher = XorSecretCipher()
-        store = SettingsStore(context, cipher = fakeCipher)
-        store.clearCredentials()
+    fun setUp() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+        val file = File(tmp.newFolder("prefs"), "settings.preferences_pb")
+        dataStore = PreferenceDataStoreFactory.create(scope = scope) { file }
+        store = SettingsStore(context, dataStore)
     }
 
-    @Test
-    fun `credentials round trip and are not stored in plain text`() = runTest {
-        val plainAppKey = "super-secret-b2-app-key-12345"
-        val credentials = Credentials(
-            keyId = "0059f2c1a7b3d4e0000000001",
-            applicationKey = plainAppKey,
-            bucket = "my-music-bucket"
-        )
-
-        store.saveCredentials(credentials)
-
-        // 1. Credentials round trip correctly
-        val loaded = store.credentials()
-        assertNotNull(loaded)
-        assertEquals("0059f2c1a7b3d4e0000000001", loaded?.keyId)
-        assertEquals(plainAppKey, loaded?.applicationKey)
-        assertEquals("my-music-bucket", loaded?.bucket)
-
-        // 2. Read raw DataStore preference values to prove the plain application key text is absent
-        val rawPrefs = context.settingsDataStore.data.first()
-        val storedAppKeyVal = rawPrefs[SettingsStore.KEY_APPLICATION_KEY]
-        assertNotNull(storedAppKeyVal)
-        assertNotEquals(plainAppKey, storedAppKeyVal)
-        assertFalse(storedAppKeyVal!!.contains(plainAppKey))
-
-        // Check every preference stored: plainAppKey must not appear in any value
-        rawPrefs.asMap().values.forEach { prefValue ->
-            assertFalse(
-                "Stored preference contains plain application key: $prefValue",
-                prefValue.toString().contains(plainAppKey)
-            )
-        }
-    }
-
-    @Test
-    fun `defaults are wifi only on and a 20 GB cap`() = runTest {
-        assertEquals(true, store.wifiOnly.first())
-        assertEquals(20_000_000_000L, store.capBytes.first())
-        assertNull(store.lastSync.first())
-    }
-
-    @Test
-    fun `clearCredentials removes them`() = runTest {
-        val credentials = Credentials(
-            keyId = "keyId123",
-            applicationKey = "appKey123",
-            bucket = "bucket123"
-        )
-
-        store.saveCredentials(credentials)
-        assertNotNull(store.credentials())
-
-        store.clearCredentials()
-        assertNull(store.credentials())
-    }
+    @After
+    fun tearDown() = scope.cancel()
 
     @Test
     fun `a saved listening session round trips and can be cleared`() = runTest {
@@ -121,10 +66,26 @@ class SettingsStoreTest {
 
     @Test
     fun `the sound preset defaults to off and is remembered`() = runTest {
-        assertEquals(com.personal.music.playback.EqPreset.OFF, store.eqPreset.first())
+        assertEquals(EqPreset.OFF, store.eqPreset.first())
 
-        store.setEqPreset(com.personal.music.playback.EqPreset.BASS)
+        store.setEqPreset(EqPreset.BASS)
 
-        assertEquals(com.personal.music.playback.EqPreset.BASS, store.eqPreset.first())
+        assertEquals(EqPreset.BASS, store.eqPreset.first())
+    }
+
+    @Test
+    fun `forgetting Backblaze wipes the old key and sync settings but keeps the rest`() = runTest {
+        dataStore.edit {
+            it[stringPreferencesKey("b2_application_key")] = "scrambled"
+            it[stringPreferencesKey("b2_key_id")] = "id"
+            it[booleanPreferencesKey("wifi_only")] = true
+        }
+        store.setEqPreset(EqPreset.VOCAL)
+
+        store.forgetBackblaze()
+
+        val prefs = dataStore.data.first()
+        assertTrue(prefs.asMap().keys.none { it.name.startsWith("b2_") || it.name == "wifi_only" })
+        assertEquals(EqPreset.VOCAL, store.eqPreset.first())
     }
 }

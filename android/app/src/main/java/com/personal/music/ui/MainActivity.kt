@@ -24,6 +24,12 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission(),
     ) { _ -> }
 
+    override fun onStart() {
+        super.onStart()
+        // Songs sent from the PC while the app was closed show up as soon as it opens.
+        (application as? MusicApp)?.container?.rescanInBackground()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 

@@ -1,5 +1,8 @@
 # Personal music app — design
 
+> **Superseded.** This document describes an earlier design that synced music through a Backblaze B2 bucket. That was removed: songs now go from the PC to the phone over USB (`musictool` + adb). See `android/README.md` and `tools/musictool/README.md` for how it works today.
+
+
 Date: 2026-11-15
 Status: approved by Nitin on 2026-11-15 (Opus 256 kbps, plus a few FLAC)
 

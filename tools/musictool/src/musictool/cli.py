@@ -7,11 +7,9 @@ import io
 import sys
 from pathlib import Path
 
-from musictool import config, ingest, manage, media
-from musictool.catalog import CATALOG_NAME, Catalog, Song
-from musictool.config import ConfigError
+from musictool import ingest, manage, media
 from musictool.media import FfmpegMissing
-from musictool.storage import B2Storage, Storage, StorageError
+from musictool.phone import AdbPhone, Phone, PhoneError
 
 
 def _reconfigure_io() -> None:
@@ -37,56 +35,66 @@ def _reconfigure_io() -> None:
                 pass
 
 
-def _song_sort_key(s: Song):
-    return (
-        (s.artist or "").casefold(),
-        (s.album or "").casefold(),
-        s.disc if s.disc is not None else 0,
-        s.track if s.track is not None else 0,
-        (s.title or "").casefold(),
-    )
-
-
-def _format_song(s: Song) -> str:
-    return f"{s.id}  {s.artist} - {s.title}  ({s.album})  [{s.format}]"
-
-
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="musictool",
-        description="Music uploader and library manager for personal music collection",
+        description="Put music on your phone over USB (adb) and manage it.",
     )
-    subparsers = parser.add_subparsers(dest="subcommand")
+    sub = parser.add_subparsers(dest="subcommand")
 
-    # add
-    p_add = subparsers.add_parser("add", help="Add songs to storage and catalog")
-    p_add.add_argument("paths", nargs="+", help="Audio file or directory paths to add")
+    p_add = sub.add_parser("add", help="Send songs to the phone")
+    p_add.add_argument("paths", nargs="+", help="Audio files or folders to send")
     p_add.add_argument(
         "--lossless",
         action="store_true",
         help="Keep lossless files as FLAC instead of converting to Opus",
     )
 
-    # remove
-    p_remove = subparsers.add_parser("remove", help="Remove songs from storage and catalog")
-    p_remove.add_argument("query", help="Song ID, title, artist, or album to remove")
-    p_remove.add_argument(
-        "--all",
-        action="store_true",
-        help="Remove all matching songs if multiple match",
-    )
+    p_remove = sub.add_parser("remove", help="Remove songs from the phone")
+    p_remove.add_argument("query", help="Part of the artist, album or title")
+    p_remove.add_argument("--all", action="store_true", help="Remove all matching songs if several match")
 
-    # list
-    p_list = subparsers.add_parser("list", help="List songs in catalog")
+    p_list = sub.add_parser("list", help="List songs on the phone")
     p_list.add_argument("query", nargs="?", default=None, help="Optional search filter")
 
-    # status
-    subparsers.add_parser("status", help="Show library status and space usage")
-
+    sub.add_parser("status", help="Show how many songs and how much space")
     return parser
 
 
-def main(argv: list[str] | None = None, storage: Storage | None = None) -> int:
+def _open_app(phone: Phone) -> None:
+    """Opening the app makes it look for new songs."""
+    try:
+        phone.open_app()
+    except PhoneError as exc:
+        print(f"Songs are on the phone, but the app could not be opened: {exc}", file=sys.stderr)
+
+
+def _print_add_report(report: ingest.AddReport) -> None:
+    print("\nSummary:")
+    print(f"  Added: {len(report.added)}")
+    if report.already_present:
+        print(f"  Already on the phone: {len(report.already_present)}")
+        for p in report.already_present:
+            print(f"    {p}")
+    if report.skipped:
+        print(f"  Skipped: {len(report.skipped)}")
+        for p, reason in report.skipped:
+            print(f"    {p}: {reason}")
+    if report.missing_tags:
+        print(f"  Missing tags: {len(report.missing_tags)}")
+        for p in report.missing_tags:
+            print(f"    {p}")
+    if report.no_space:
+        print(f"  Not enough space on the phone: {len(report.no_space)}")
+        for p in report.no_space:
+            print(f"    {p}")
+    if report.failed:
+        print(f"  Failures: {len(report.failed)}")
+        for p, reason in report.failed:
+            print(f"    {p}: {reason}")
+
+
+def main(argv: list[str] | None = None, phone: Phone | None = None) -> int:
     """CLI entry point for musictool."""
     _reconfigure_io()
 
@@ -107,95 +115,58 @@ def main(argv: list[str] | None = None, storage: Storage | None = None) -> int:
         if args.subcommand == "add":
             media.require_ffmpeg()
 
-        if storage is None:
-            cfg = config.load()
-            storage = B2Storage(cfg.key_id, cfg.application_key, cfg.bucket)
+        if phone is None:
+            phone = AdbPhone()
 
         if args.subcommand == "add":
-            paths = [Path(p) for p in args.paths]
             report = ingest.add(
-                paths,
-                storage=storage,
+                [Path(p) for p in args.paths],
+                phone=phone,
                 keep_lossless=args.lossless,
                 # Flush so each song shows as it finishes, even when output is piped.
                 on_progress=lambda message: print(message, flush=True),
             )
-
-            print("\nSummary:")
-            print(f"  Added: {len(report.added)}")
-            if report.already_present:
-                print(f"  Already present: {len(report.already_present)}")
-                for p in report.already_present:
-                    print(f"    {p}")
-            if report.skipped:
-                print(f"  Skipped: {len(report.skipped)}")
-                for p, reason in report.skipped:
-                    print(f"    {p}: {reason}")
-            if report.missing_tags:
-                print(f"  Missing tags: {len(report.missing_tags)}")
-                for p in report.missing_tags:
-                    print(f"    {p}")
-            if report.over_limit:
-                print(f"  Refused (space limit): {len(report.over_limit)}")
-                for p in report.over_limit:
-                    print(f"    {p}")
-            if report.failed:
-                print(f"  Failures: {len(report.failed)}")
-                for p, reason in report.failed:
-                    print(f"    {p}: {reason}")
-
+            _print_add_report(report)
+            if report.added:
+                _open_app(phone)
             return 1 if report.failed else 0
 
-        elif args.subcommand == "remove":
-            raw = storage.read(CATALOG_NAME)
-            catalog = Catalog.from_json(raw.decode("utf-8")) if raw else Catalog()
-            matches = manage.find(catalog, args.query)
-
+        if args.subcommand == "remove":
+            matches = manage.find(phone.list_files(), args.query)
             if not matches:
                 print("No song matches")
                 return 1
-
             if len(matches) > 1 and not args.all:
-                for s in sorted(matches, key=_song_sort_key):
-                    print(_format_song(s))
+                for f in matches:
+                    print(f.rel)
+                print("Several songs match. Use --all to remove all of them.")
                 return 1
-
-            removed = manage.remove([s.id for s in matches], storage)
-            for s in removed:
-                print(f"Removed {s.artist} - {s.title}")
+            removed = manage.remove([f.rel for f in matches], phone)
+            for rel in removed:
+                print(f"Removed {rel}")
+            if removed:
+                _open_app(phone)
             return 0
 
-        elif args.subcommand == "list":
-            raw = storage.read(CATALOG_NAME)
-            catalog = Catalog.from_json(raw.decode("utf-8")) if raw else Catalog()
-            songs = manage.find(catalog, args.query) if args.query else list(catalog.songs)
-            for s in sorted(songs, key=_song_sort_key):
-                print(_format_song(s))
+        if args.subcommand == "list":
+            found = manage.songs(phone.list_files())
+            if args.query:
+                found = manage.find(found, args.query)
+            for f in sorted(found, key=lambda f: f.rel.casefold()):
+                print(f"{f.rel}  ({f.size / 1_000_000:.1f} MB)")
             return 0
 
-        elif args.subcommand == "status":
-            st = manage.status(storage)
-            song_str = f"{st.songs} song" if st.songs == 1 else f"{st.songs} songs"
-            used_gb = st.total_bytes / 1_000_000_000
-            limit_gb = st.limit_bytes / 1_000_000_000
-            pct = (st.total_bytes / st.limit_bytes * 100) if st.limit_bytes else 0.0
-            lossless_str = (
-                f"{st.lossless_songs} song" if st.lossless_songs == 1 else f"{st.lossless_songs} songs"
-            )
-            lossless_mb = st.lossless_bytes / 1_000_000
-            lossless_gb = st.lossless_bytes / 1_000_000_000
-
-            print(f"{song_str}")
-            print(f"Space: {used_gb:.2f} GB / {limit_gb:.1f} GB ({pct:.1f}%)")
-            print(f"FLAC: {lossless_str}, {lossless_gb:.2f} GB ({lossless_mb:.1f} MB)")
-            print(f"Version: {st.version}")
+        if args.subcommand == "status":
+            st = manage.status(phone)
+            print(f"{st.songs} song" if st.songs == 1 else f"{st.songs} songs")
+            print(f"Space used: {st.total_bytes / 1_000_000_000:.2f} GB ({st.free_bytes / 1_000_000_000:.1f} GB free on the phone)")
+            print(f"FLAC: {st.flac_songs} song{'s' if st.flac_songs != 1 else ''}, {st.flac_bytes / 1_000_000_000:.2f} GB")
             return 0
 
         return 0
 
-    except (ConfigError, FfmpegMissing, StorageError) as exc:
-        msg = str(exc).replace("\n", " ")
-        sys.stderr.write(f"Error: {msg}\n")
+    except (FfmpegMissing, PhoneError) as exc:
+        sys.stderr.write(f"Error: {str(exc).replace(chr(10), ' ')}\n")
         return 2
 
 

@@ -1,5 +1,8 @@
 # musictool (PC uploader) Implementation Plan
 
+> **Superseded.** This document describes an earlier design that synced music through a Backblaze B2 bucket. That was removed: songs now go from the PC to the phone over USB (`musictool` + adb). See `android/README.md` and `tools/musictool/README.md` for how it works today.
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A Windows command-line tool that takes a folder of audio files, prepares them, uploads them to a private Backblaze B2 bucket and maintains `catalog.json`, which the Android app will later sync from.

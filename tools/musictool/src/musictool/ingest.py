@@ -1,4 +1,4 @@
-"""Add songs to storage and catalog."""
+"""Send songs to the phone."""
 
 from __future__ import annotations
 
@@ -8,75 +8,72 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
-from musictool.catalog import CATALOG_NAME, LIMIT_BYTES, Catalog, Song
-from musictool.ids import album_id, song_id
-from musictool.media import (
-    NotAudio,
-    content_type,
-    extract_cover,
-    plan_encoding,
-    prepare,
-    probe,
-)
-from musictool.storage import Storage, StorageError
+from musictool.media import NotAudio, extract_cover, plan_encoding, prepare, probe
+from musictool.naming import AUDIO_EXTENSIONS, cover_path, song_path
+from musictool.phone import Phone, PhoneError
+
+# Always leave this much free so the phone keeps working.
+RESERVE_BYTES = 1_000_000_000
+
+_SIDECAR_COVERS = ("Folder.jpg", "folder.jpg", "cover.jpg", "Cover.jpg")
+
+
+@dataclass
+class Added:
+    rel: str
+    source: Path
+    size: int
+    format: str
 
 
 @dataclass
 class AddReport:
-    added: list[Song] = field(default_factory=list)
+    added: list[Added] = field(default_factory=list)
     already_present: list[Path] = field(default_factory=list)
     skipped: list[tuple[Path, str]] = field(default_factory=list)
     failed: list[tuple[Path, str]] = field(default_factory=list)
     missing_tags: list[Path] = field(default_factory=list)
-    over_limit: list[Path] = field(default_factory=list)
+    no_space: list[Path] = field(default_factory=list)
+
+
+def _expand(paths: list[Path]) -> list[Path]:
+    """Files as given; folders walked, taking only audio files (pictures and notes are ignored)."""
+    files: list[Path] = []
+    for p in paths:
+        p = Path(p)
+        if p.is_dir():
+            files.extend(f for f in p.rglob("*") if f.is_file() and f.suffix.lower() in AUDIO_EXTENSIONS)
+        else:
+            files.append(p)
+    return sorted(files)
+
+
+def _sidecar_cover(song: Path) -> Path | None:
+    for name in _SIDECAR_COVERS:
+        candidate = song.parent / name
+        if candidate.is_file():
+            return candidate
+    return None
 
 
 def add(
     paths: list[Path],
-    storage: Storage,
+    phone: Phone,
     keep_lossless: bool = False,
     on_progress: Callable[[str], None] = lambda _: None,
 ) -> AddReport:
-    """Add songs from given paths to storage and update the catalog."""
+    """Put songs on the phone, converting lossless files to Opus unless [keep_lossless]."""
     report = AddReport()
+    files = _expand(paths)
 
-    # 1. Expand each path: file as is, folder walked recursively. Sorted order.
-    files: list[Path] = []
-    for p in paths:
-        path_obj = Path(p)
-        if path_obj.is_dir():
-            for sub in path_obj.rglob("*"):
-                if sub.is_file():
-                    files.append(sub)
-        else:
-            files.append(path_obj)
-    files.sort()
+    on_phone = {f.rel for f in phone.list_files()}
+    free = phone.free_bytes()
 
-    # 2. Load the catalog from storage (absent means an empty catalog).
-    raw_catalog = storage.read(CATALOG_NAME)
-    if raw_catalog is not None:
-        catalog = Catalog.from_json(raw_catalog.decode("utf-8"))
-    else:
-        catalog = Catalog()
-
-    cover_exists: dict[str, bool] = {}
-
-    # In a finally block, bump and upload catalog if at least one song was added.
-    try:
-        with tempfile.TemporaryDirectory() as temp_dir_str:
-            temp_dir = Path(temp_dir_str)
-            for path in files:
-                # 3. Compute id, check catalog, probe and plan encoding
-                try:
-                    sid = song_id(path)
-                except OSError as exc:
-                    report.skipped.append((path, str(exc)))
-                    continue
-
-                if catalog.has(sid):
-                    report.already_present.append(path)
-                    continue
-
+    with tempfile.TemporaryDirectory() as temp:
+        for number, path in enumerate(files):
+            workdir = Path(temp) / str(number)
+            workdir.mkdir()
+            try:
                 try:
                     p = probe(path)
                     plan = plan_encoding(p.codec, path.suffix, keep_lossless)
@@ -84,81 +81,43 @@ def add(
                     report.skipped.append((path, str(exc)))
                     continue
 
+                rel = song_path(p, plan.ext)
+                if rel in on_phone:
+                    report.already_present.append(path)
+                    continue
                 if p.tags_missing:
                     report.missing_tags.append(path)
 
-                target_name = f"songs/{sid}{plan.ext}"
-                song_workdir = temp_dir / sid
-                song_workdir.mkdir(parents=True, exist_ok=True)
-
-                # 4. Target upload or reuse; check space limit
                 try:
-                    existing_size = storage.size(target_name)
-                    if existing_size is not None:
-                        file_size = existing_size
-                        if catalog.total_bytes() + file_size > LIMIT_BYTES:
-                            report.over_limit.append(path)
-                            continue
-                    else:
-                        try:
-                            prepared_path = prepare(path, plan, song_workdir)
-                        except NotAudio as exc:
-                            report.skipped.append((path, str(exc)))
-                            continue
+                    ready = prepare(path, plan, workdir)
+                except NotAudio as exc:
+                    report.skipped.append((path, str(exc)))
+                    continue
 
-                        file_size = prepared_path.stat().st_size
-                        if catalog.total_bytes() + file_size > LIMIT_BYTES:
-                            report.over_limit.append(path)
-                            continue
+                size = ready.stat().st_size
+                if size > free - RESERVE_BYTES:
+                    report.no_space.append(path)
+                    continue
 
-                        storage.put_file(target_name, prepared_path, content_type(plan.ext))
+                try:
+                    phone.put_file(rel, ready)
+                    on_phone.add(rel)
+                    free -= size
 
-                    # 5. Cover art
-                    # One existence check per album per run keeps B2 API calls low.
-                    cover_name = f"covers/{album_id(p.album_artist, p.album)}.jpg"
-                    if cover_name not in cover_exists:
-                        cover_exists[cover_name] = storage.size(cover_name) is not None
-                    if p.has_cover and not cover_exists[cover_name]:
-                        cover_path = extract_cover(path, song_workdir)
-                        if cover_path is not None:
-                            storage.put_file(cover_name, cover_path, content_type(".jpg"))
-                            cover_exists[cover_name] = True
-
-                    song_cover = cover_name if cover_exists[cover_name] else None
-
-                    # 6. Add Song to catalog and to added
-                    song = Song(
-                        id=sid,
-                        title=p.title,
-                        artist=p.artist,
-                        album=p.album,
-                        albumArtist=p.album_artist,
-                        track=p.track,
-                        disc=p.disc,
-                        year=p.year,
-                        durationMs=p.duration_ms,
-                        sizeBytes=file_size,
-                        format=plan.format,
-                        file=target_name,
-                        cover=song_cover,
-                    )
-                    catalog.add(song)
-                    report.added.append(song)
-                    on_progress(f"Added {song.artist} - {song.title}")
-                except StorageError as exc:
+                    cover_rel = cover_path(p)
+                    if cover_rel not in on_phone:
+                        cover = extract_cover(path, workdir) if p.has_cover else _sidecar_cover(path)
+                        if cover is not None:
+                            phone.put_file(cover_rel, cover)
+                            on_phone.add(cover_rel)
+                except PhoneError as exc:
                     report.failed.append((path, str(exc)))
                     break
-                finally:
-                    # Converted files are large; do not let them pile up over a long run.
-                    shutil.rmtree(song_workdir, ignore_errors=True)
-    finally:
-        # 7. Bump and upload catalog if any song was added
-        if report.added:
-            catalog.bump()
-            storage.put_bytes(
-                CATALOG_NAME,
-                catalog.to_json().encode("utf-8"),
-                "application/json",
-            )
+
+                report.added.append(Added(rel, path, size, plan.format))
+                on_progress(f"Added {p.artist} - {p.title}")
+            finally:
+                # Converted files are large; do not let them pile up over a long run.
+                shutil.rmtree(workdir, ignore_errors=True)
 
     return report

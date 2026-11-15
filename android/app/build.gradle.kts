@@ -83,15 +83,13 @@ dependencies {
     ksp(libs.androidx.room.compiler)
 
     // WorkManager
-    implementation(libs.androidx.work.runtime.ktx)
 
     // Coroutines & Serialization
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
 
-    // Networking & Images
-    implementation(libs.okhttp)
+    // Images
     implementation(libs.coil.compose)
 
     // Testing
@@ -99,7 +97,6 @@ dependencies {
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.robolectric)
     testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.androidx.media3.test.utils)
     testImplementation(libs.androidx.compose.ui.test.junit4)
 }

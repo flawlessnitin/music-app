@@ -1,131 +1,124 @@
 import shutil
-from pathlib import Path
 
-import pytest
-
-from musictool.catalog import Catalog, Song
-from musictool.ids import album_id, song_id
 from musictool.ingest import add
-from musictool.storage import Storage
 
 
-@pytest.fixture
-def audio_dir(tmp_path, audio):
-    d = tmp_path / "valid_audio"
-    d.mkdir()
-    valid_keys = ["tagged_flac", "untagged_wav", "mp3", "m4a", "hindi_flac"]
-    for key in valid_keys:
-        src = audio[key]
-        shutil.copy2(src, d / src.name)
-    return d
+def test_lossless_source_becomes_opus_with_its_cover(audio, phone):
+    report = add([audio["tagged_flac"]], phone)
+
+    assert [a.rel for a in report.added] == ["AA/Album/03 - Song A.opus"]
+    assert report.added[0].format == "opus"
+    assert "AA/Album/Folder.jpg" in phone.files
+    assert phone.files["AA/Album/03 - Song A.opus"]
 
 
-def only_song(storage: Storage) -> Song:
-    raw = storage.read("catalog.json")
-    assert raw is not None, "catalog.json not found in storage"
-    cat = Catalog.from_json(raw.decode("utf-8"))
-    assert len(cat.songs) == 1, f"Expected 1 song, found {len(cat.songs)}"
-    return cat.songs[0]
+def test_keep_lossless_keeps_flac(audio, phone):
+    report = add([audio["tagged_flac"]], phone, keep_lossless=True)
+
+    assert [a.rel for a in report.added] == ["AA/Album/03 - Song A.flac"]
+    assert report.added[0].format == "flac"
 
 
-def songs_by_format(storage: Storage) -> dict[str, Song]:
-    raw = storage.read("catalog.json")
-    assert raw is not None, "catalog.json not found in storage"
-    cat = Catalog.from_json(raw.decode("utf-8"))
-    return {s.format: s for s in cat.songs}
+def test_a_lossy_file_is_copied_untouched(audio, phone):
+    report = add([audio["mp3"]], phone)
+
+    rel = report.added[0].rel
+    assert rel.endswith(".mp3")
+    assert phone.files[rel] == audio["mp3"].read_bytes()
 
 
-def test_add_folder_uploads_songs_then_catalog_last(audio_dir, fake):
-    report = add([audio_dir], fake)
-    assert fake.puts[-1] == "catalog.json"
-    cat = Catalog.from_json(fake.files["catalog.json"].decode())
-    assert cat.version == 1 and len(cat.songs) == len(report.added)
-    for s in cat.songs:
-        assert s.file in fake.files and s.sizeBytes == len(fake.files[s.file])
+def test_files_without_tags_are_added_and_reported(audio, phone):
+    report = add([audio["untagged_wav"]], phone)
 
-
-def test_lossless_becomes_opus_and_lossy_is_untouched(audio, fake):
-    add([audio["tagged_flac"], audio["mp3"]], fake)
-    by_title = songs_by_format(fake)
-    assert by_title["opus"].file.endswith(".opus")
-    assert fake.files[by_title["mp3"].file] == audio["mp3"].read_bytes()
-
-
-def test_keep_lossless_stores_flac(audio, fake):
-    report = add([audio["tagged_flac"]], fake, keep_lossless=True)
-    assert report.added[0].format == "flac" and report.added[0].file.endswith(".flac")
-
-
-def test_cover_uploaded_once_per_album(audio, fake):
-    add([audio["tagged_flac"]], fake)
-    song = only_song(fake)
-    assert song.cover == f"covers/{album_id('AA', 'Album')}.jpg" and song.cover in fake.files
-
-
-def test_song_without_cover_has_null_cover(audio, fake):
-    add([audio["mp3"]], fake); assert only_song(fake).cover is None
-
-
-def test_adding_twice_changes_nothing(audio, fake):
-    add([audio["tagged_flac"]], fake); puts = list(fake.puts)
-    report = add([audio["tagged_flac"]], fake)
-    assert report.added == [] and report.already_present == [audio["tagged_flac"]]
-    assert fake.puts == puts                       # no catalog rewrite, version stays 1
-
-
-def test_non_audio_and_corrupt_files_are_skipped_and_the_rest_added(audio, fake):
-    report = add([audio["not_audio"], audio["truncated_flac"], audio["mp3"]], fake)
-    assert {p for p, _ in report.skipped} == {audio["not_audio"], audio["truncated_flac"]}
     assert len(report.added) == 1
+    assert report.missing_tags == [audio["untagged_wav"]]
+    assert report.added[0].rel.startswith("Unknown/Unknown/")
 
 
-def test_untagged_file_is_added_and_reported(audio, fake):
-    report = add([audio["untagged_wav"]], fake)
-    assert report.missing_tags == [audio["untagged_wav"]] and report.added[0].title == "my track"
+def test_adding_the_same_song_twice_sends_it_once(audio, phone):
+    add([audio["mp3"]], phone)
+    pushed = len(phone.pushed)
+
+    report = add([audio["mp3"]], phone)
+
+    assert report.added == []
+    assert report.already_present == [audio["mp3"]]
+    assert len(phone.pushed) == pushed
 
 
-def test_non_latin_file_is_added(audio, fake):
-    assert add([audio["hindi_flac"]], fake).added[0].title == "तुम ही हो"
+def test_non_audio_and_video_are_skipped_with_a_reason(audio, phone):
+    report = add([audio["not_audio"], audio["video"], audio["truncated_flac"]], phone)
+
+    assert report.added == []
+    assert {p.name for p, _ in report.skipped} == {"notes.txt", "clip.mp4", "truncated.flac"}
+    assert phone.files == {}
 
 
-def test_song_over_the_limit_is_refused_not_uploaded(audio, fake, monkeypatch):
-    monkeypatch.setattr("musictool.ingest.LIMIT_BYTES", 10)
-    report = add([audio["mp3"]], fake)
-    assert report.over_limit == [audio["mp3"]] and fake.puts == []
+def test_a_folder_is_walked_and_pictures_and_notes_are_ignored(audio, phone, tmp_path):
+    album = tmp_path / "mix"
+    album.mkdir()
+    shutil.copy(audio["mp3"], album / "one.mp3")
+    shutil.copy(audio["m4a"], album / "two.m4a")
+    (album / "notes.txt").write_text("x")
+    (album / "Folder.jpg").write_bytes(b"jpg")
+
+    report = add([album], phone)
+
+    assert len(report.added) == 2
+    assert report.skipped == []
 
 
-def test_upload_failure_keeps_finished_songs_and_rerun_completes(audio, fake):
-    first, second = sorted([audio["mp3"], audio["m4a"]])
-    fake.fail_on = {f"songs/{song_id(second)}{second.suffix}"}
-    report = add([first, second], fake)
-    assert len(report.added) == 1 and report.failed[0][0] == second
-    assert Catalog.from_json(fake.files["catalog.json"].decode()).version == 1
-    fake.fail_on = set(); uploads_before = list(fake.puts)
-    report = add([first, second], fake)
-    assert len(report.added) == 1 and report.already_present == [first]
-    assert f"songs/{song_id(first)}{first.suffix}" not in fake.puts[len(uploads_before):]
+def test_a_folder_jpg_next_to_songs_becomes_the_cover(audio, phone, tmp_path):
+    album = tmp_path / "mix"
+    album.mkdir()
+    shutil.copy(audio["mp3"], album / "one.mp3")
+    (album / "Folder.jpg").write_bytes(b"cover-bytes")
+
+    add([album], phone)
+
+    assert phone.files["Unknown/Unknown/Folder.jpg"] == b"cover-bytes"
 
 
-def test_orphan_upload_from_interrupted_run_is_reused(audio, fake):
-    name = f"songs/{song_id(audio['mp3'])}.mp3"
-    fake.files[name] = audio["mp3"].read_bytes()
-    add([audio["mp3"]], fake)
-    assert name not in fake.puts and only_song(fake).sizeBytes == len(fake.files[name])
+def test_a_cover_already_on_the_phone_is_not_sent_again(audio, phone):
+    add([audio["tagged_flac"]], phone)
+    covers = [r for r in phone.pushed if r.endswith("Folder.jpg")]
+    assert len(covers) == 1
+
+    add([audio["tagged_flac"]], phone, keep_lossless=True)
+
+    assert len([r for r in phone.pushed if r.endswith("Folder.jpg")]) == 1
 
 
-def test_two_songs_of_one_album_share_one_cover_upload(audio, fake, tmp_path):
-    import subprocess
-    second = tmp_path / "second.flac"
-    subprocess.run(["ffmpeg", "-y", "-i", str(audio["tagged_flac"]), "-map", "0", "-c", "copy",
-                    "-metadata", "title=Song B", str(second)], check=True, capture_output=True)
-    report = add([audio["tagged_flac"], second], fake)
-    assert len(report.added) == 2 and report.added[0].cover == report.added[1].cover
-    assert [n for n in fake.puts if n.startswith("covers/")] == [report.added[0].cover]
+def test_a_song_that_does_not_fit_is_refused(audio, phone):
+    phone.free = 100
+
+    report = add([audio["mp3"]], phone)
+
+    assert report.added == []
+    assert report.no_space == [audio["mp3"]]
+    assert phone.files == {}
 
 
-def test_converted_files_are_cleaned_up_after_each_song(audio, fake, tmp_path, monkeypatch):
-    monkeypatch.setattr("tempfile.tempdir", str(tmp_path))
-    seen = []
-    add([audio["tagged_flac"], audio["hindi_flac"]], fake,
-        on_progress=lambda _: seen.append(len(list(tmp_path.rglob("*.opus")))))
-    assert seen == [1, 1]
+def test_a_failed_push_is_reported_and_stops_the_run(audio, phone):
+    # Files go in name order, so song.m4a is tried first and song.mp3 is never reached.
+    phone.fail_on = {"Unknown/Unknown/song.m4a"}
+
+    report = add([audio["mp3"], audio["m4a"]], phone)
+
+    assert [p.name for p, _ in report.failed] == ["song.m4a"]
+    assert report.added == []
+    assert phone.files == {}
+
+
+def test_progress_is_reported_per_song(audio, phone):
+    seen: list[str] = []
+
+    add([audio["mp3"]], phone, on_progress=seen.append)
+
+    assert len(seen) == 1 and "song" in seen[0]
+
+
+def test_non_latin_names_work(audio, phone):
+    report = add([audio["hindi_flac"]], phone)
+
+    assert report.added[0].rel.endswith("तुम ही हो.opus")
