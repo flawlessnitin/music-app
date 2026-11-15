@@ -93,11 +93,8 @@ fun AppBottomBar(
             onClick = {
                 if (currentRoute != "library") {
                     navController.navigate("library") {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
-                        }
+                        popUpTo(navController.graph.findStartDestination().id)
                         launchSingleTop = true
-                        restoreState = true
                     }
                 }
             },
@@ -114,11 +111,8 @@ fun AppBottomBar(
             onClick = {
                 if (currentRoute != "playlists") {
                     navController.navigate("playlists") {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
-                        }
+                        popUpTo(navController.graph.findStartDestination().id)
                         launchSingleTop = true
-                        restoreState = true
                     }
                 }
             },
@@ -135,11 +129,8 @@ fun AppBottomBar(
             onClick = {
                 if (currentRoute != "settings") {
                     navController.navigate("settings") {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
-                        }
+                        popUpTo(navController.graph.findStartDestination().id)
                         launchSingleTop = true
-                        restoreState = true
                     }
                 }
             },

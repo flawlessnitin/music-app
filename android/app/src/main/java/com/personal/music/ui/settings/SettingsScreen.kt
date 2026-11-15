@@ -89,6 +89,7 @@ fun SettingsScreen(
             value = applicationKey,
             onValueChange = { applicationKey = it },
             label = { Text("Application Key") },
+            placeholder = { if (ui.hasCredentials) Text("Saved. Leave empty to keep it.") },
             visualTransformation = if (keyVisible) VisualTransformation.None else PasswordVisualTransformation(),
             trailingIcon = {
                 IconButton(

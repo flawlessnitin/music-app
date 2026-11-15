@@ -103,8 +103,9 @@ class SettingsViewModel(
 
     fun save(keyId: String, applicationKey: String, bucket: String): Job = scope.launch {
         val trimmedKeyId = keyId.trim()
-        val trimmedAppKey = applicationKey.trim()
         val trimmedBucket = bucket.trim()
+        // The key field starts empty after leaving the screen; keep the saved key then.
+        val trimmedAppKey = applicationKey.trim().ifBlank { settings.credentials()?.applicationKey.orEmpty() }
 
         if (trimmedKeyId.isBlank() || trimmedAppKey.isBlank() || trimmedBucket.isBlank()) {
             testState.value = TestState(
