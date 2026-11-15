@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "musictool"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["b2sdk"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+musictool = "musictool.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
