@@ -41,7 +41,9 @@ class LibraryRepository(private val db: MusicDatabase) {
                 format = remote.format,
                 file = remote.file,
                 cover = remote.cover,
-                downloaded = existing?.downloaded ?: false
+                // A song re-added in another format keeps its id but points at a new file,
+                // so the copy on the phone no longer counts.
+                downloaded = existing != null && existing.downloaded && existing.file == remote.file
             )
         }
         if (toUpsert.isNotEmpty()) {

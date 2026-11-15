@@ -121,6 +121,20 @@ class LibraryRepositoryTest {
     }
 
     @Test
+    fun `applyCatalog clears the downloaded flag when the song points at a new file`() = runTest {
+        repository.applyCatalog(RemoteCatalog(1, "", listOf(sampleSong(id = "1"))))
+        repository.setDownloaded("1", true)
+
+        repository.applyCatalog(
+            RemoteCatalog(2, "", listOf(sampleSong(id = "1", format = "flac", file = "songs/1.flac")))
+        )
+
+        val after = repository.song("1")!!
+        assertEquals("songs/1.flac", after.file)
+        assertEquals(false, after.downloaded)
+    }
+
+    @Test
     fun `applyCatalog deletes songs missing from the new catalog and returns them`() = runTest {
         val catalogV1 = RemoteCatalog(
             version = 1,
