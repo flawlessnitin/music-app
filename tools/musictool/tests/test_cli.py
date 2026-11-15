@@ -64,3 +64,15 @@ def test_config_saved_with_a_byte_order_mark_still_loads(tmp_path):
     f = tmp_path / "config.toml"
     f.write_text('key_id = "a"\napplication_key = "b"\nbucket = "c"\n', encoding="utf-8-sig")
     assert config.load(f).bucket == "c"
+
+
+def test_config_in_the_project_folder_is_used_before_the_home_one(tmp_path, monkeypatch):
+    from musictool import config
+    monkeypatch.delenv("MUSICTOOL_CONFIG", raising=False)
+    project, home = tmp_path / "project.toml", tmp_path / "home.toml"
+    home.write_text('key_id = "h"\napplication_key = "h"\nbucket = "home"\n', encoding="utf-8")
+    monkeypatch.setattr(config, "PROJECT_CONFIG", project)
+    monkeypatch.setattr(config, "HOME_CONFIG", home)
+    assert config.load().bucket == "home"
+    project.write_text('key_id = "p"\napplication_key = "p"\nbucket = "project"\n', encoding="utf-8")
+    assert config.load().bucket == "project"

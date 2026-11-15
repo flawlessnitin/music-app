@@ -26,7 +26,7 @@
 
 ## 2. Configuration
 
-Create your local configuration file at `~/.musictool/config.toml` (e.g. `C:\Users\<Username>\.musictool\config.toml` on Windows):
+Create your local configuration file at `tools/musictool/config.toml` inside the project. Git ignores this file, so the keys are never committed. If that file does not exist, the tool falls back to `~/.musictool/config.toml` (e.g. `C:\Users\<Username>\.musictool\config.toml` on Windows).
 
 ```toml
 key_id = "your-b2-key-id"
@@ -34,7 +34,7 @@ application_key = "your-b2-application-key"
 bucket = "your-bucket-name"
 ```
 
-> **Note:** The configuration file stays on your local machine outside the repository and must never be committed to source control.
+> **Note:** The configuration file stays on your local machine and must never be committed to source control.
 > You can also specify a custom configuration file path by setting the `MUSICTOOL_CONFIG` environment variable:
 >
 > ```powershell

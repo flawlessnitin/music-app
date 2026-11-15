@@ -8,6 +8,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
+# tools/musictool/config.toml in the project (git-ignored), then the home folder.
+PROJECT_CONFIG = Path(__file__).resolve().parents[2] / "config.toml"
+HOME_CONFIG = Path.home() / ".musictool" / "config.toml"
+
+
 class ConfigError(Exception):
     """Raised when configuration is missing or invalid."""
     pass
@@ -32,8 +37,10 @@ def load(path: Path | None = None) -> Config:
         env = os.environ.get("MUSICTOOL_CONFIG")
         if env:
             cfg_path = Path(env)
+        elif PROJECT_CONFIG.is_file():
+            cfg_path = PROJECT_CONFIG
         else:
-            cfg_path = Path.home() / ".musictool" / "config.toml"
+            cfg_path = HOME_CONFIG
 
     required_keys = ("key_id", "application_key", "bucket")
 
