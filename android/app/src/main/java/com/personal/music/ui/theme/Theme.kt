@@ -8,7 +8,11 @@ import androidx.compose.ui.graphics.Color
 private val SpotifyLikeColors = darkColorScheme(
     primary = SpotifyGreen,
     onPrimary = Color.Black,
+    primaryContainer = SpotifyGreen,
+    onPrimaryContainer = Color.Black,
     secondary = SpotifyGreen,
+    secondaryContainer = Color(0xFF4D4D4D),
+    onSecondaryContainer = Color.White,
     onSecondary = Color.Black,
     tertiary = SpotifyGreen,
     background = Background,
