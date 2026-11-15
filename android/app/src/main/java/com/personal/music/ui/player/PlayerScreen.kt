@@ -289,7 +289,10 @@ fun PlayerScreen(
                     // Repeat
                     IconButton(
                         onClick = { player.cycleRepeat() },
-                        modifier = Modifier.testTag("repeat_button"),
+                        // Wide enough for the icon plus its OFF / ALL / ONE label on a narrow phone.
+                        modifier = Modifier
+                            .width(56.dp)
+                            .testTag("repeat_button"),
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
